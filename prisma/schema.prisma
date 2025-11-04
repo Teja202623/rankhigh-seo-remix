@@ -5,10 +5,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Supports both SQLite (local dev) and PostgreSQL (Railway production)
-// Railway will automatically override with ${{Postgres.DATABASE_URL}}
+// PostgreSQL for both local and production
+// Railway will automatically provide DATABASE_URL via ${{Postgres.DATABASE_URL}}
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
