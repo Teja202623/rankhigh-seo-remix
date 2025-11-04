@@ -14,7 +14,8 @@ database.sqlite
 .env
 .env.*
 
-package-lock.json
+# Keep package-lock.json for Railway deployment (npm ci requires it)
+# package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
