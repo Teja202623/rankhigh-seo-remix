@@ -1,0 +1,28 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "7933f74cbe306b3da9e61c641011d3be"
+name = "RankHigh SEO Remix"
+application_url = "https://rankhigh-seo-remix-production-fec2.up.railway.app"
+embedded = true
+
+[webhooks]
+api_version = "2025-10"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_analytics,read_metaobjects,read_online_store_pages,read_products,read_script_tags,read_themes,write_metaobjects,write_online_store_pages,write_products,write_script_tags,write_themes"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://rankhigh-seo-remix-production-fec2.up.railway.app/auth/callback"
+]
