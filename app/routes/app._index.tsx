@@ -10,7 +10,7 @@ import {
   Button,
   Badge,
 } from "@shopify/polaris";
-import { authenticate } from "~/shopify.server";
+import { authenticate } from "../shopify.server";
 
 /**
  * Dashboard Route (app._index.tsx)
