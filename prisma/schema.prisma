@@ -1,17 +1,22 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Prisma Schema for RankHigh SEO
+// Merged: Shopify Remix template Session + RankHigh SEO business models
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+// Supports both SQLite (local dev) and PostgreSQL (Railway production)
+// Railway will automatically override with ${{Postgres.DATABASE_URL}}
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  url      = env("DATABASE_URL")
 }
+
+// ====================
+// SHOPIFY SESSION STORAGE
+// Required by @shopify/shopify-app-session-storage-prisma
+// Using enhanced Session model from Shopify Remix template
+// ====================
 
 model Session {
   id            String    @id
@@ -29,4 +34,188 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+}
+
+// ====================
+// CORE APP MODELS
+// ====================
+
+model Store {
+  id          String   @id @default(uuid())
+  shopUrl     String   @unique
+  accessToken String
+  plan        String   @default("FREE") // FREE, BASIC, PRO, ENTERPRISE
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  audits        Audit[]
+  pages         Page[]
+  keywords      Keyword[]
+  users         User[]
+  schemas       SchemaMarkup[]
+  redirects     Redirect[]
+  notifications Notification[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  storeId   String
+  email     String
+  name      String?
+  role      String   @default("ADMIN") // ADMIN, EDITOR, VIEWER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, email])
+}
+
+// ====================
+// SEO AUDIT MODELS
+// ====================
+
+model Audit {
+  id             String    @id @default(uuid())
+  storeId        String
+  status         String    @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  totalUrls      Int       @default(0)
+  completed      Int       @default(0)
+  criticalIssues Int       @default(0)
+  highIssues     Int       @default(0)
+  mediumIssues   Int       @default(0)
+  lowIssues      Int       @default(0)
+  overallScore   Int? // 0-100 SEO score
+  startedAt      DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+// ====================
+// PAGE MODELS
+// ====================
+
+model Page {
+  id              String   @id @default(uuid())
+  storeId         String
+  url             String
+  title           String?
+  metaTitle       String?
+  metaDescription String?
+  h1              String?
+  wordCount       Int?
+  status          String   @default("ACTIVE") // ACTIVE, DRAFT, ARCHIVED
+  pageType        String? // PRODUCT, COLLECTION, BLOG, ARTICLE, PAGE
+  shopifyId       String? // Reference to Shopify resource
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  seoIssues SEOIssue[]
+
+  @@unique([storeId, url])
+}
+
+model SEOIssue {
+  id         String   @id @default(uuid())
+  pageId     String
+  type       String // MISSING_META_TITLE, DUPLICATE_CONTENT, BROKEN_LINK, etc.
+  severity   String // CRITICAL, HIGH, MEDIUM, LOW
+  message    String
+  suggestion String? // How to fix
+  isFixed    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+}
+
+// ====================
+// KEYWORD TRACKING
+// ====================
+
+model Keyword {
+  id           String   @id @default(uuid())
+  storeId      String
+  keyword      String
+  targetUrl    String?
+  searchVolume Int?
+  difficulty   Int? // 0-100
+  isTracking   Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  rankings KeywordRanking[]
+}
+
+model KeywordRanking {
+  id        String   @id @default(uuid())
+  keywordId String
+  position  Int
+  url       String?
+  device    String   @default("DESKTOP") // DESKTOP, MOBILE
+  location  String   @default("US")
+  date      DateTime @default(now())
+
+  keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+}
+
+// ====================
+// SCHEMA MARKUP
+// ====================
+
+model SchemaMarkup {
+  id        String   @id @default(uuid())
+  storeId   String
+  pageId    String? // Optional - can be store-wide
+  type      String // PRODUCT, ARTICLE, FAQ, BREADCRUMB, ORGANIZATION, etc.
+  schema    String // JSON-LD schema stored as text (SQLite compatible)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+}
+
+// ====================
+// REDIRECTS
+// ====================
+
+model Redirect {
+  id        String   @id @default(uuid())
+  storeId   String
+  from      String
+  to        String
+  type      String   @default("301") // 301, 302, 307
+  hits      Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, from])
+}
+
+// ====================
+// NOTIFICATIONS
+// ====================
+
+model Notification {
+  id        String   @id @default(uuid())
+  storeId   String
+  type      String // INFO, WARNING, ERROR, SUCCESS
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  actionUrl String?
+  createdAt DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 }
