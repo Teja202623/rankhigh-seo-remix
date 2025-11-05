@@ -155,19 +155,8 @@ global.customElements = {
 // ========================================
 // URL and Location Mocks
 // ========================================
-if (typeof window !== 'undefined') {
-  delete window.location;
-  window.location = {
-    href: 'https://localhost:8080',
-    origin: 'https://localhost:8080',
-    pathname: '/',
-    search: '',
-    hash: '',
-    reload: jest.fn(),
-    replace: jest.fn(),
-    assign: jest.fn(),
-  };
-}
+// Note: jsdom provides window.location by default, so we don't need to mock it
+// unless we need specific custom behavior
 
 // ========================================
 // URLSearchParams Mock

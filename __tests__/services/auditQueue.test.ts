@@ -5,6 +5,24 @@
  * Includes: job queueing, status checks, cooldown enforcement, job cancellation
  */
 
+// Mock BullMQ before importing the service
+jest.mock('bullmq', () => ({
+  Queue: jest.fn().mockImplementation(() => ({
+    add: jest.fn().mockResolvedValue({ id: 'job-123' }),
+    getJob: jest.fn().mockResolvedValue(null),
+    close: jest.fn().mockResolvedValue(undefined),
+  })),
+  Worker: jest.fn(),
+  Job: jest.fn(),
+}));
+
+// Mock IORedis
+jest.mock('ioredis', () => {
+  return jest.fn().mockImplementation(() => ({
+    disconnect: jest.fn(),
+  }));
+});
+
 // Mock Prisma before importing the service
 jest.mock('~/db.server', () => ({
   __esModule: true,
