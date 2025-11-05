@@ -5,9 +5,9 @@
  * Configured for Remix/React component and service testing
  */
 
-export default {
-  testEnvironment: 'jsdom',
-  testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx', '**/*.test.ts', '**/*.test.tsx'],
+module.exports = {
+  testEnvironment: 'node',
+  testMatch: ['**/__tests__/**/*.test.ts', '**/__tests__/**/*.test.tsx'],
   testPathIgnorePatterns: ['/node_modules/', '/build/', '/dist/', '/e2e/'],
   collectCoverageFrom: [
     'app/**/*.{ts,tsx}',
@@ -19,27 +19,21 @@ export default {
   ],
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.cjs'],
   moduleNameMapper: {
     '^~/(.*)$': '<rootDir>/app/$1',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
-  transform: {
-    '^.+\\.(ts|tsx)$': ['@swc/jest', {
-      jsc: {
-        parser: {
-          syntax: 'typescript',
-          tsx: true,
-          decorators: false
-        },
-        transform: {
-          react: {
-            runtime: 'automatic'
-          }
-        }
+  preset: 'ts-jest',
+  globals: {
+    'ts-jest': {
+      tsconfig: {
+        jsx: 'react-jsx',
+        esModuleInterop: true,
+        allowSyntheticDefaultImports: true
       }
-    }]
+    }
   },
   verbose: true,
   clearMocks: true,
@@ -47,5 +41,6 @@ export default {
   restoreMocks: true,
   testTimeout: 10000,
   bail: false,
-  maxWorkers: '50%'
+  maxWorkers: '50%',
+  transformIgnorePatterns: ['/node_modules/']
 };

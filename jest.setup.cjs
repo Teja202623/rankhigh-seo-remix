@@ -5,7 +5,7 @@
  * Adapted from Meridian Theme testing infrastructure
  */
 
-import '@testing-library/jest-dom';
+require('@testing-library/jest-dom');
 
 // ========================================
 // Enhanced IntersectionObserver Mock
@@ -108,19 +108,21 @@ global.fetch = jest.fn(() =>
 // ========================================
 // MatchMedia Mock
 // ========================================
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // ========================================
 // Animation Frame Mocks
@@ -153,17 +155,19 @@ global.customElements = {
 // ========================================
 // URL and Location Mocks
 // ========================================
-delete window.location;
-window.location = {
-  href: 'https://localhost:8080',
-  origin: 'https://localhost:8080',
-  pathname: '/',
-  search: '',
-  hash: '',
-  reload: jest.fn(),
-  replace: jest.fn(),
-  assign: jest.fn(),
-};
+if (typeof window !== 'undefined') {
+  delete window.location;
+  window.location = {
+    href: 'https://localhost:8080',
+    origin: 'https://localhost:8080',
+    pathname: '/',
+    search: '',
+    hash: '',
+    reload: jest.fn(),
+    replace: jest.fn(),
+    assign: jest.fn(),
+  };
+}
 
 // ========================================
 // URLSearchParams Mock
@@ -209,10 +213,12 @@ global.history = {
 // ========================================
 // Shopify App Bridge Mock
 // ========================================
-global.window.shopifyApp = {
-  apiKey: 'test-api-key',
-  host: 'test.myshopify.com',
-};
+if (typeof window !== 'undefined') {
+  global.window.shopifyApp = {
+    apiKey: 'test-api-key',
+    host: 'test.myshopify.com',
+  };
+}
 
 // ========================================
 // Meridian Global Mock (for RankHigh SEO)
