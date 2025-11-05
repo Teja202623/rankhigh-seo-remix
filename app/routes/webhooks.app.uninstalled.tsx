@@ -1,17 +1,102 @@
 import type { ActionFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
-import db from "../db.server";
+import prisma from "../db.server";
 
+/**
+ * App Uninstall Webhook Handler
+ * 
+ * Shopify calls this when a merchant uninstalls the app.
+ * We must delete or anonymize all personal data:
+ * - Store credentials (access tokens)
+ * - Google integration tokens
+ * - Analytics data (GA4, GTM IDs)
+ * - All related audit data, pages, keywords, etc.
+ * 
+ * Required for app store review and GDPR compliance
+ * Reference: https://shopify.dev/docs/apps/webhooks/configuration/mandatory-webhooks
+ */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, session, topic } = await authenticate.webhook(request);
 
-  console.log(`Received ${topic} webhook for ${shop}`);
+  console.log(`[UNINSTALL] Received ${topic} webhook for ${shop}`);
 
-  // Webhook requests can trigger multiple times and after an app has already been uninstalled.
-  // If this webhook already ran, the session may have been deleted previously.
-  if (session) {
-    await db.session.deleteMany({ where: { shop } });
+  try {
+    // Step 1: Delete all related data for this store (in dependency order)
+    // Start with dependent records, work up to core Store record
+    
+    const store = await prisma.store.findUnique({
+      where: { shopUrl: shop },
+      select: { id: true },
+    });
+
+    if (!store) {
+      console.log(`[UNINSTALL] Store not found for ${shop}, nothing to clean up`);
+      return new Response();
+    }
+
+    const storeId = store.id;
+    console.log(`[UNINSTALL] Cleaning up all data for store: ${storeId}`);
+
+    // Delete all related records in order of foreign key dependencies
+    await Promise.all([
+      // Delete analytics data
+      prisma.gscQuery.deleteMany({ where: { storeId } }),
+      prisma.gscPage.deleteMany({ where: { storeId } }),
+      prisma.gscMetric.deleteMany({ where: { storeId } }),
+      
+      // Delete audit and related data
+      prisma.seoIssue.deleteMany({ where: { audit: { storeId } } }),
+      prisma.audit.deleteMany({ where: { storeId } }),
+      
+      // Delete page-related data
+      prisma.keywordRanking.deleteMany({ where: { page: { storeId } } }),
+      prisma.keyword.deleteMany({ where: { storeId } }),
+      prisma.page.deleteMany({ where: { storeId } }),
+      
+      // Delete other related data
+      prisma.schemaMarkup.deleteMany({ where: { storeId } }),
+      prisma.redirect.deleteMany({ where: { storeId } }),
+      prisma.notification.deleteMany({ where: { storeId } }),
+      prisma.activityLog.deleteMany({ where: { storeId } }),
+      
+      // Delete users associated with this store
+      prisma.user.deleteMany({ where: { storeId } }),
+    ]);
+
+    // Delete all sessions for this shop (from Shopify authentication)
+    if (session) {
+      await prisma.session.deleteMany({ where: { shop } });
+    }
+
+    // Finally, delete the Store record itself
+    const deletedStore = await prisma.store.delete({
+      where: { id: storeId },
+      select: { shopUrl: true },
+    });
+
+    console.log(`[UNINSTALL] Successfully deleted all data for store: ${deletedStore.shopUrl}`);
+
+    // Return 200 OK to acknowledge receipt
+    // Shopify won't retry if we return 200, even if there's an error
+    return new Response(JSON.stringify({ success: true, deleted: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error(`[UNINSTALL] Error handling ${topic}:`, error);
+    
+    // Even if deletion fails, return 200 OK to prevent Shopify retries
+    // Log the error for manual investigation and cleanup
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: "Cleanup failed - manual review required",
+        shop 
+      }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
-
-  return new Response();
 };
