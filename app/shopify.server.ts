@@ -120,28 +120,27 @@ const shopify = shopifyApp({
       // Register webhooks for this shop
       shopify.registerWebhooks({ session });
 
-      // TODO: Re-enable database operations after database setup
-      console.log(`Store ${session.shop} authenticated successfully`);
-
-      // try {
-      //   // Create or update store in database
-      //   if (session.accessToken) {
-      //     await prisma.store.upsert({
-      //       where: { shopUrl: session.shop },
-      //       create: {
-      //         shopUrl: session.shop,
-      //         accessToken: session.accessToken,
-      //       },
-      //       update: {
-      //         accessToken: session.accessToken,
-      //         updatedAt: new Date(),
-      //       },
-      //     });
-      //   }
-      // } catch (error) {
-      //   console.error("Error storing shop data:", error);
-      //   throw error;
-      // }
+      // CRITICAL: Create or update store record in database
+      // This ensures the store exists before feature loaders try to access it
+      try {
+        if (session.accessToken) {
+          await prisma.store.upsert({
+            where: { shopUrl: session.shop },
+            create: {
+              shopUrl: session.shop,
+              accessToken: session.accessToken,
+            },
+            update: {
+              accessToken: session.accessToken,
+              updatedAt: new Date(),
+            },
+          });
+        }
+        console.log(`Store ${session.shop} created/updated in database`);
+      } catch (error) {
+        console.error("Error storing shop data:", error);
+        throw error;
+      }
     },
   },
 
