@@ -34,6 +34,10 @@ model Session {
   locale        String?
   collaborator  Boolean?  @default(false)
   emailVerified Boolean?  @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([shop])
 }
 
 // ====================
@@ -41,13 +45,38 @@ model Session {
 // ====================
 
 model Store {
-  id          String   @id @default(uuid())
-  shopUrl     String   @unique
-  accessToken String
-  plan        String   @default("FREE") // FREE, BASIC, PRO, ENTERPRISE
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  shopUrl             String   @unique
+  accessToken         String
+  plan                String   @default("FREE") // FREE, BASIC, PRO, ENTERPRISE
+  isActive            Boolean  @default(true)
+  onboardingCompleted Boolean  @default(false)
+  onboardingStep      Int      @default(1) // Current step in onboarding (1-5)
+  gtmId               String?  // Google Tag Manager ID
+  ga4Id               String?  // Google Analytics 4 ID
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Sitemap Settings
+  sitemapExcludePasswordProtected Boolean   @default(false)
+  sitemapExcludeOutOfStock        Boolean   @default(false)
+  sitemapExcludeDraft             Boolean   @default(true)
+  sitemapExcludeSearch            Boolean   @default(true)
+  sitemapExcludeCart              Boolean   @default(true)
+  sitemapExcludeCheckout          Boolean   @default(true)
+  sitemapExcludeAccount           Boolean   @default(true)
+  sitemapCustomExclusions         String?   // JSON array of regex patterns
+  sitemapLastGenerated            DateTime?
+  sitemapUrlCount                 Int       @default(0)
+  sitemapXmlContent               String?   // Cached XML content
+
+  // Google Search Console Integration
+  gscAccessToken      String?   // OAuth access token
+  gscRefreshToken     String?   // OAuth refresh token for automatic renewal
+  gscTokenExpiry      DateTime? // Token expiration timestamp
+  gscConnected        Boolean   @default(false) // Connection status
+  gscPropertyUrl      String?   // Selected GSC property URL
+  gscLastSync         DateTime? // Last successful data sync
 
   // Relations
   audits        Audit[]
@@ -57,6 +86,14 @@ model Store {
   schemas       SchemaMarkup[]
   redirects     Redirect[]
   notifications Notification[]
+  gscQueries    GSCQuery[]
+  gscPages      GSCPage[]
+  gscMetrics    GSCMetric[]
+  activityLogs  ActivityLog[]
+
+  @@index([shopUrl])
+  @@index([isActive])
+  @@index([onboardingCompleted])
 }
 
 model User {
@@ -71,6 +108,7 @@ model User {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@unique([storeId, email])
+  @@index([storeId])
 }
 
 // ====================
@@ -94,6 +132,9 @@ model Audit {
   updatedAt      DateTime  @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
+  @@index([storeId, status])
 }
 
 // ====================
@@ -118,6 +159,10 @@ model Page {
   store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
   seoIssues SEOIssue[]
 
+  @@index([storeId])
+  @@index([storeId, pageType])
+  @@index([storeId, status])
+  @@index([shopifyId])
   @@unique([storeId, url])
 }
 
@@ -133,6 +178,10 @@ model SEOIssue {
   updatedAt  DateTime @updatedAt
 
   page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId, severity])
+  @@index([pageId, isFixed])
+  @@index([severity, isFixed, createdAt])
 }
 
 // ====================
@@ -152,6 +201,9 @@ model Keyword {
 
   store    Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
   rankings KeywordRanking[]
+
+  @@index([storeId])
+  @@index([storeId, isTracking])
 }
 
 model KeywordRanking {
@@ -164,6 +216,8 @@ model KeywordRanking {
   date      DateTime @default(now())
 
   keyword Keyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@index([keywordId, date])
 }
 
 // ====================
@@ -175,12 +229,15 @@ model SchemaMarkup {
   storeId   String
   pageId    String? // Optional - can be store-wide
   type      String // PRODUCT, ARTICLE, FAQ, BREADCRUMB, ORGANIZATION, etc.
-  schema    String // JSON-LD schema stored as text (SQLite compatible)
+  schema    Json // JSON-LD schema
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, type])
+  @@index([storeId, isActive])
 }
 
 // ====================
@@ -200,6 +257,7 @@ model Redirect {
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
+  @@index([storeId, isActive])
   @@unique([storeId, from])
 }
 
@@ -218,4 +276,78 @@ model Notification {
   createdAt DateTime @default(now())
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, isRead, createdAt])
+}
+
+// ====================
+// GOOGLE SEARCH CONSOLE INTEGRATION (Tasks 49-56)
+// ====================
+
+model GSCQuery {
+  id          String   @id @default(uuid())
+  storeId     String
+  query       String   // Search query text
+  clicks      Int      // Number of clicks
+  impressions Int      // Number of impressions
+  ctr         Float    // Click-through rate (0-1)
+  position    Float    // Average position in search results
+  date        DateTime // Date of the data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, date])
+}
+
+model GSCPage {
+  id          String   @id @default(uuid())
+  storeId     String
+  pageUrl     String   // Page URL
+  clicks      Int      // Number of clicks
+  impressions Int      // Number of impressions
+  ctr         Float    // Click-through rate (0-1)
+  position    Float    // Average position in search results
+  date        DateTime // Date of the data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, date])
+}
+
+model GSCMetric {
+  id                String   @id @default(uuid())
+  storeId           String
+  totalClicks       Int      // Total clicks in period
+  totalImpressions  Int      // Total impressions in period
+  averageCtr        Float    // Average CTR in period
+  averagePosition   Float    // Average position in period
+  startDate         DateTime // Period start date
+  endDate           DateTime // Period end date
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, startDate])
+}
+
+// ====================
+// ACTIVITY LOG (Task 62)
+// ====================
+
+model ActivityLog {
+  id          String   @id @default(uuid())
+  storeId     String
+  action      String   // "META_UPDATED", "ALT_ADDED", "SITEMAP_GENERATED", etc.
+  description String   // Human-readable description
+  metadata    Json?    // Additional data (productId, count, etc.)
+  createdAt   DateTime @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, createdAt])
 }

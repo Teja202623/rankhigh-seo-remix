@@ -37,7 +37,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return json({
     shopUrl: session.shop,
     stats,
-    latestAudit: null,
+    latestAudit: null as { status: string; createdAt: string } | null,
   });
 }
 
