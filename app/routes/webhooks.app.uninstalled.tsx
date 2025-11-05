@@ -43,22 +43,26 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       prisma.gscQuery.deleteMany({ where: { storeId } }),
       prisma.gscPage.deleteMany({ where: { storeId } }),
       prisma.gscMetric.deleteMany({ where: { storeId } }),
-      
-      // Delete audit and related data
-      prisma.seoIssue.deleteMany({ where: { audit: { storeId } } }),
+
+      // Delete SEO issues (linked through page relation)
+      prisma.seoIssue.deleteMany({ where: { page: { storeId } } }),
+
+      // Delete keyword rankings (linked through keyword relation)
+      prisma.keywordRanking.deleteMany({ where: { keyword: { storeId } } }),
+
+      // Delete audit records (directly linked to store)
       prisma.audit.deleteMany({ where: { storeId } }),
-      
+
       // Delete page-related data
-      prisma.keywordRanking.deleteMany({ where: { page: { storeId } } }),
       prisma.keyword.deleteMany({ where: { storeId } }),
       prisma.page.deleteMany({ where: { storeId } }),
-      
+
       // Delete other related data
       prisma.schemaMarkup.deleteMany({ where: { storeId } }),
       prisma.redirect.deleteMany({ where: { storeId } }),
       prisma.notification.deleteMany({ where: { storeId } }),
       prisma.activityLog.deleteMany({ where: { storeId } }),
-      
+
       // Delete users associated with this store
       prisma.user.deleteMany({ where: { storeId } }),
     ]);
