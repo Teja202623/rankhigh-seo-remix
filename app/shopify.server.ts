@@ -79,31 +79,34 @@ const shopify = shopifyApp({
    * - CUSTOMERS_DATA_REQUEST: GDPR data export
    * - CUSTOMERS_REDACT: GDPR customer data deletion
    * - SHOP_REDACT: GDPR shop data deletion
+   *
+   * Each webhook routes to its specific handler file in app/routes/webhooks.*.tsx
+   * Route mapping: webhooks.topic.subtopic.tsx → /webhooks/topic/subtopic
    */
   webhooks: {
     APP_UNINSTALLED: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/app/uninstalled",
     },
     CUSTOMERS_DATA_REQUEST: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/customers_data_request",
     },
     CUSTOMERS_REDACT: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/customers_redact",
     },
     SHOP_REDACT: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/shop_redact",
     },
     PRODUCTS_UPDATE: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/products_update",
     },
     THEMES_PUBLISH: {
       deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks",
+      callbackUrl: "/webhooks/themes_publish",
     },
   },
 
