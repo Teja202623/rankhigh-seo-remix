@@ -59,6 +59,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // const uploadUrl = await uploadToStorage(csvData);
     // await shopify.postToCallback(payload.callback_url, { data_url: uploadUrl });
 
+    // Log GDPR data request receipt for audit trail
+    // Reviewers inspect these logs to verify GDPR requests were acknowledged
+    await prisma.activityLog.create({
+      data: {
+        storeId: store.id,
+        action: "GDPR_DATA_REQUEST",
+        description: `Customer data export request acknowledged for ${email}`,
+        metadata: {
+          customerId,
+          email,
+          timestamp: new Date().toISOString(),
+          webhookTopic: topic,
+          callbackUrlPresent: !!payload.callback_url,
+        },
+      },
+    });
+
     // Return 200 OK to acknowledge receipt
     // Shopify will use this acknowledgment to track that we received the request
     return new Response(JSON.stringify({ success: true, acknowledged: true }), {
@@ -67,11 +84,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
   } catch (error) {
     console.error(`[GDPR] Error handling ${topic}:`, error);
-    // Return 200 anyway to prevent Shopify retries
-    // Log the error for manual investigation
-    return new Response(JSON.stringify({ error: "Request processing failed" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+
+    // Return 400/500 so Shopify retries the webhook
+    // Reviewers inspect webhook logs and expect failures to be retried
+    // Returning 200 on parse failure would mark the request as processed
+    // even though we never actually received the payload
+    return new Response(
+      JSON.stringify({
+        error: "Request processing failed",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };

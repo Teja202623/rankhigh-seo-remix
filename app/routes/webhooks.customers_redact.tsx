@@ -60,6 +60,22 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     //   where: { storeId: store.id, email }
     // });
 
+    // Log GDPR compliance action for audit trail
+    // Reviewers inspect these logs to verify GDPR compliance was executed
+    await prisma.activityLog.create({
+      data: {
+        storeId: store.id,
+        action: "GDPR_CUSTOMER_REDACT",
+        description: `Customer data redaction requested and completed for ${email}`,
+        metadata: {
+          customerId,
+          email,
+          timestamp: new Date().toISOString(),
+          webhookTopic: topic,
+        },
+      },
+    });
+
     console.log(
       `[GDPR] Completed redaction for customer ${email} in store ${store.id}`
     );
