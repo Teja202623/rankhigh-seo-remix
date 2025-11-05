@@ -16,13 +16,16 @@ import prisma from "../db.server";
  * Reference: https://shopify.dev/docs/apps/webhooks/configuration/mandatory-webhooks
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
+  // Clone request before authenticate consumes the body
+  const requestForPayload = request.clone();
+
   const { shop, topic } = await authenticate.webhook(request);
 
   console.log(`[GDPR] Received ${topic} webhook for ${shop}`);
 
   try {
-    // Parse the request body to get request details
-    const text = await request.text();
+    // Parse the cloned request body to get request details
+    const text = await requestForPayload.text();
     const payload = JSON.parse(text);
     const customerId = payload.customer?.id;
     const email = payload.customer?.email;
