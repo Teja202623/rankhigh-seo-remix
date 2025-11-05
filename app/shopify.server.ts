@@ -100,14 +100,6 @@ const shopify = shopifyApp({
       deliveryMethod: DeliveryMethod.Http,
       callbackUrl: "/webhooks/shop_redact",
     },
-    PRODUCTS_UPDATE: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/products_update",
-    },
-    THEMES_PUBLISH: {
-      deliveryMethod: DeliveryMethod.Http,
-      callbackUrl: "/webhooks/themes_publish",
-    },
   },
 
   /**

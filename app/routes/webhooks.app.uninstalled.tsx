@@ -80,25 +80,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     console.log(`[UNINSTALL] Successfully deleted all data for store: ${deletedStore.shopUrl}`);
 
-    // Return 200 OK to acknowledge receipt
-    // Shopify won't retry if we return 200, even if there's an error
+    // Return 200 OK to acknowledge successful receipt and processing
     return new Response(JSON.stringify({ success: true, deleted: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error(`[UNINSTALL] Error handling ${topic}:`, error);
-    
-    // Even if deletion fails, return 200 OK to prevent Shopify retries
-    // Log the error for manual investigation and cleanup
+
+    // Return 500 error so Shopify retries the webhook
+    // This ensures data cleanup is retried until successful
+    // Shopify will eventually give up after max retries and alert merchant
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: "Cleanup failed - manual review required",
-        shop 
+      JSON.stringify({
+        success: false,
+        error: "Cleanup failed - Shopify will retry",
+        shop,
       }),
       {
-        status: 200,
+        status: 500,
         headers: { "Content-Type": "application/json" },
       }
     );
