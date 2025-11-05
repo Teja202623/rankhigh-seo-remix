@@ -689,27 +689,41 @@ export default function SchemaManagementPage() {
               <Divider />
 
               <BlockStack gap="300">
-                <Text variant="headingSm" as="h3">
-                  How Schemas Are Injected
-                </Text>
-                <Text as="p">
-                  Generated schemas are automatically injected into your theme's pages using Shopify app blocks or theme extensions.
-                  The schemas appear in the page's <code>&lt;head&gt;</code> section as JSON-LD.
-                </Text>
+                <Banner>
+                  <Text as="p">
+                    <strong>What this tool does:</strong> Generate and validate structured data schemas for your products, organization, and breadcrumbs.
+                    You can preview the JSON-LD output and verify it passes schema.org validation.
+                  </Text>
+                </Banner>
 
                 <Text variant="headingSm" as="h3">
-                  Testing Your Schemas
+                  Manual Schema Implementation
                 </Text>
                 <Text as="p">
-                  After saving a schema:
+                  Generated schemas are NOT automatically injected into your theme. To use these schemas on your site:
                 </Text>
                 <Box paddingInlineStart="400">
                   <ol>
-                    <li>Copy the generated JSON-LD</li>
-                    <li>Visit Google's Rich Results Test</li>
-                    <li>Paste the JSON-LD or enter your page URL</li>
-                    <li>Review any errors or warnings</li>
-                    <li>Fix issues and regenerate if needed</li>
+                    <li>Generate a schema using the form above</li>
+                    <li>Copy the generated JSON-LD from the preview</li>
+                    <li>Add it to your theme's page template or section manually</li>
+                    <li>Alternatively, use a third-party app that supports schema injection</li>
+                  </ol>
+                </Box>
+
+                <Text variant="headingSm" as="h3">
+                  Validating Your Schemas
+                </Text>
+                <Text as="p">
+                  Before adding schemas to your theme:
+                </Text>
+                <Box paddingInlineStart="400">
+                  <ol>
+                    <li>Use the preview in this app to verify the JSON-LD structure</li>
+                    <li>Visit <Link url="https://schema.org/docs/schemas.html" external>schema.org</Link> for schema specification details</li>
+                    <li>Test with <Link url="https://schema.org/docs/extension.html" external>Google's Rich Results Test</Link> after adding to your theme</li>
+                    <li>Review any validation errors or warnings</li>
+                    <li>Update schemas when product information changes</li>
                   </ol>
                 </Box>
 
@@ -722,7 +736,7 @@ export default function SchemaManagementPage() {
                     <li>Use high-quality images (at least 800x800px)</li>
                     <li>Ensure all URLs are absolute and use HTTPS</li>
                     <li>Include accurate pricing and availability</li>
-                    <li>Test schemas before deploying to production</li>
+                    <li>Validate schemas match your product/page content</li>
                     <li>Update schemas when product information changes</li>
                   </ul>
                 </Box>
