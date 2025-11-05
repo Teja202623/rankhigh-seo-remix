@@ -87,11 +87,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     });
   } catch (error) {
     console.error(`[GDPR] Error handling ${topic}:`, error);
-    // Return 200 anyway to prevent Shopify retries
-    // Log the error for manual investigation
-    return new Response(JSON.stringify({ error: "Redaction processing failed" }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+
+    // CRITICAL: Return 500 so Shopify retries the webhook
+    // GDPR compliance requires that redaction actually succeeds
+    // Returning 200 on failure would mark the request as complete
+    // and merchant customer data would never be deleted
+    // Reviewers specifically check for 5xx on failure for GDPR webhooks
+    return new Response(
+      JSON.stringify({
+        error: "Redaction processing failed",
+        details: error instanceof Error ? error.message : String(error),
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
   }
 };
