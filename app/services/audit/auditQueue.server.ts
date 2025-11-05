@@ -20,45 +20,63 @@ import type { AuditJobData, AuditJobResult } from "~/types/audit";
 import { processAudit } from "./auditService.server";
 
 // ====================
-// REDIS CONNECTION
-// ====================
-
-const redisConnection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-  enableReadyCheck: false,
-});
-
-redisConnection.on("error", (error) => {
-  console.error("[AuditQueue] Redis connection error:", error);
-});
-
-redisConnection.on("connect", () => {
-  console.log("[AuditQueue] Redis connected successfully");
-});
-
-// ====================
-// QUEUE SETUP
+// REDIS CONNECTION (OPTIONAL)
 // ====================
 
 const QUEUE_NAME = "seo-audits";
 
-export const auditQueue = new Queue<AuditJobData>(QUEUE_NAME, {
-  connection: redisConnection,
-  defaultJobOptions: {
-    attempts: 3, // Retry failed jobs up to 3 times
-    backoff: {
-      type: "exponential",
-      delay: 5000, // Start with 5 second delay, doubles each retry
-    },
-    removeOnComplete: {
-      age: 86400, // Keep completed jobs for 24 hours
-      count: 100, // Keep last 100 completed jobs
-    },
-    removeOnFail: {
-      age: 604800, // Keep failed jobs for 7 days
-    },
-  },
-});
+// Check if Redis is available - if not, audits will run synchronously
+const REDIS_ENABLED = !!process.env.REDIS_URL;
+let redisConnection: IORedis | null = null;
+let auditQueue: Queue<AuditJobData> | null = null;
+
+if (REDIS_ENABLED) {
+  try {
+    redisConnection = new IORedis(process.env.REDIS_URL!, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      lazyConnect: true, // Don't connect immediately
+    });
+
+    redisConnection.on("error", (error) => {
+      console.error("[AuditQueue] Redis connection error:", error);
+    });
+
+    redisConnection.on("connect", () => {
+      console.log("[AuditQueue] Redis connected successfully");
+    });
+
+    // ====================
+    // QUEUE SETUP
+    // ====================
+
+    auditQueue = new Queue<AuditJobData>(QUEUE_NAME, {
+      connection: redisConnection,
+      defaultJobOptions: {
+        attempts: 3, // Retry failed jobs up to 3 times
+        backoff: {
+          type: "exponential",
+          delay: 5000, // Start with 5 second delay, doubles each retry
+        },
+        removeOnComplete: {
+          age: 86400, // Keep completed jobs for 24 hours
+          count: 100, // Keep last 100 completed jobs
+        },
+        removeOnFail: {
+          age: 604800, // Keep failed jobs for 7 days
+        },
+      },
+    });
+
+    console.log("[AuditQueue] Queue initialized with Redis support");
+  } catch (error) {
+    console.warn("[AuditQueue] Redis not available, audits will run synchronously:", error);
+    redisConnection = null;
+    auditQueue = null;
+  }
+} else {
+  console.log("[AuditQueue] Redis not configured (REDIS_URL missing), audits will run synchronously");
+}
 
 // ====================
 // WORKER SETUP
@@ -71,6 +89,12 @@ let auditWorker: Worker<AuditJobData, AuditJobResult> | null = null;
  * Should be called once on application startup
  */
 export function initializeAuditWorker() {
+  // If no Redis connection, can't create worker
+  if (!redisConnection) {
+    console.log("[AuditQueue] Cannot initialize worker without Redis connection");
+    return null;
+  }
+
   // Prevent multiple worker initialization
   if (auditWorker) {
     console.warn("[AuditQueue] Worker already initialized");
@@ -199,11 +223,47 @@ export function initializeAuditWorker() {
 // ====================
 
 /**
- * Add a new audit job to the queue
+ * Add a new audit job to the queue (or run synchronously if Redis unavailable)
  * @param auditData - Data for the audit job
- * @returns Job ID
+ * @returns Job ID (or "sync" for synchronous execution)
  */
 export async function queueAudit(auditData: AuditJobData): Promise<string> {
+  // If Redis is not available, run audit synchronously
+  if (!auditQueue) {
+    console.log(`[AuditQueue] Running audit ${auditData.auditId} synchronously (no Redis)`);
+
+    try {
+      // Update audit status to RUNNING
+      await prisma.audit.update({
+        where: { id: auditData.auditId },
+        data: {
+          status: "RUNNING",
+          startedAt: new Date(),
+        },
+      });
+
+      // Execute the audit synchronously
+      await processAudit(auditData.auditId, auditData.shopDomain, (progress) => {
+        console.log(`[AuditQueue] Progress: ${JSON.stringify(progress)}`);
+      });
+
+      console.log(`[AuditQueue] Audit ${auditData.auditId} completed synchronously`);
+    } catch (error) {
+      console.error(`[AuditQueue] Synchronous audit ${auditData.auditId} failed:`, error);
+
+      await prisma.audit.update({
+        where: { id: auditData.auditId },
+        data: {
+          status: "FAILED",
+          completedAt: new Date(),
+        },
+      });
+    }
+
+    return "sync";
+  }
+
+  // Use Redis queue for background processing
   const job = await auditQueue.add("process-audit", auditData, {
     jobId: `audit-${auditData.auditId}`, // Prevent duplicate jobs for same audit
   });
@@ -221,6 +281,19 @@ export async function queueAudit(auditData: AuditJobData): Promise<string> {
  * @returns Job status and progress
  */
 export async function getAuditJobStatus(auditId: string) {
+  // If Redis not available, check database directly
+  if (!auditQueue) {
+    const audit = await prisma.audit.findUnique({
+      where: { id: auditId },
+      select: { status: true },
+    });
+
+    return {
+      status: audit?.status || "NOT_FOUND",
+      progress: null,
+    };
+  }
+
   const jobId = `audit-${auditId}`;
   const job = await auditQueue.getJob(jobId);
 
@@ -298,6 +371,19 @@ export async function canRunAudit(storeId: string): Promise<{
  * Cancel a running audit job
  */
 export async function cancelAudit(auditId: string): Promise<boolean> {
+  if (!auditQueue) {
+    // If no queue, just update database
+    await prisma.audit.update({
+      where: { id: auditId },
+      data: {
+        status: "FAILED",
+        completedAt: new Date(),
+      },
+    });
+    console.log(`[AuditQueue] Cancelled audit ${auditId} (no queue)`);
+    return true;
+  }
+
   const jobId = `audit-${auditId}`;
   const job = await auditQueue.getJob(jobId);
 
@@ -326,6 +412,11 @@ export async function cancelAudit(auditId: string): Promise<boolean> {
  * Should be called periodically (e.g., daily cron job)
  */
 export async function cleanupOldJobs(): Promise<void> {
+  if (!auditQueue) {
+    console.log("[AuditQueue] No queue to clean up");
+    return;
+  }
+
   // Remove completed jobs older than 24 hours
   await auditQueue.clean(86400000, 100, "completed");
 
@@ -345,6 +436,8 @@ export async function shutdownAuditWorker(): Promise<void> {
     console.log("[AuditQueue] Worker shut down gracefully");
   }
 
-  await redisConnection.quit();
-  console.log("[AuditQueue] Redis connection closed");
+  if (redisConnection) {
+    await redisConnection.quit();
+    console.log("[AuditQueue] Redis connection closed");
+  }
 }
