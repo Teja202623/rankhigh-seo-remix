@@ -160,7 +160,7 @@ export default function Dashboard() {
                 </Text>
                 <InlineStack gap="300">
                   <Button url="/app/seo/audit">Run SEO Audit</Button>
-                  <Button url="/app/pages">Manage Pages</Button>
+                  <Button url="/app/seo/meta">Manage Pages</Button>
                   <Button url="/app/keywords">Track Keywords</Button>
                   <Button url="/app/settings">Settings</Button>
                 </InlineStack>
