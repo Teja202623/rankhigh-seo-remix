@@ -50,7 +50,7 @@ export default function Dashboard() {
       subtitle={`Welcome to RankHigh SEO for ${shopUrl}`}
       primaryAction={{
         content: "Run SEO Audit",
-        url: "/app/audits",
+        url: "/app/seo/audit",
       }}
     >
       <Layout>
@@ -146,7 +146,7 @@ export default function Dashboard() {
                         {new Date(latestAudit.createdAt).toLocaleString()}
                       </Text>
                     </BlockStack>
-                    <Button url="/app/audits">View Details</Button>
+                    <Button url="/app/seo/audit">View Details</Button>
                   </InlineStack>
                 </BlockStack>
               </Card>
@@ -159,7 +159,7 @@ export default function Dashboard() {
                   Quick Actions
                 </Text>
                 <InlineStack gap="300">
-                  <Button url="/app/audits">Run SEO Audit</Button>
+                  <Button url="/app/seo/audit">Run SEO Audit</Button>
                   <Button url="/app/pages">Manage Pages</Button>
                   <Button url="/app/keywords">Track Keywords</Button>
                   <Button url="/app/settings">Settings</Button>
