@@ -90,6 +90,7 @@ model Store {
   gscPages      GSCPage[]
   gscMetrics    GSCMetric[]
   activityLogs  ActivityLog[]
+  usageTracking UsageTracking?
 
   @@index([shopUrl])
   @@index([isActive])
@@ -350,4 +351,33 @@ model ActivityLog {
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
   @@index([storeId, createdAt])
+}
+
+// ====================
+// USAGE TRACKING (Week 4)
+// Tracks daily usage of FREE tier features
+// Resets at 12:00 AM UTC each day
+// ====================
+
+model UsageTracking {
+  id                      String   @id @default(uuid())
+  storeId                 String   @unique
+  date                    DateTime // Date this tracking started (midnight UTC)
+
+  // Daily counters (reset each day)
+  auditRunsToday          Int      @default(0)      // SEO audits run
+  bulkEditsToday          Int      @default(0)      // Bulk meta/ALT edits
+  metaUpdatesToday        Int      @default(0)      // Meta title/description updates
+  altUpdatesToday         Int      @default(0)      // ALT text updates
+  gscApiCallsToday        Int      @default(0)      // Google Search Console API calls
+  sitemapGenerationsToday Int      @default(0)      // Sitemap XML generations
+
+  // Metadata
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([date])
 }
