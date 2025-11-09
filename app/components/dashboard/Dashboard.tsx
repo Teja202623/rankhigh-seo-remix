@@ -5,8 +5,6 @@ import SEOScoreBreakdown from '~/components/common/SEOScoreBreakdown';
 import QuickWinsSection, { generateQuickWins } from './QuickWinsSection';
 import SEOHealthVisualization from './SEOHealthVisualization';
 import PerformanceDashboard from './PerformanceDashboard';
-import { AuditStatsWidget } from './AuditStatsWidget';
-import { UsageStatsWidget } from './UsageStatsWidget';
 import { calculateSEOScore, getScoreLabel, getImprovementSuggestions } from '~/utils/seoScore';
 import { useMemo, useState, useCallback } from 'react';
 import type { UsageStatus } from '~/services/usage.server';
@@ -19,8 +17,8 @@ interface DashboardProps {
 
 export default function Dashboard({
   latestAudit = null,
-  usageStatus,
-  isLoading = false
+  usageStatus, // Props received but not used while debugging
+  isLoading = false // Props received but not used while debugging
 }: DashboardProps) {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
@@ -98,13 +96,7 @@ export default function Dashboard({
               <div style={{ padding: '16px' }}>
                 {selectedTab === 0 && (
                   <BlockStack gap="500">
-            {/* Usage Stats Widget - Compact Mode */}
-            {usageStatus && (
-              <UsageStatsWidget status={usageStatus} compact={true} />
-            )}
-
-            {/* Audit Stats Widget - Replaces old audit section */}
-            <AuditStatsWidget audit={latestAudit} isLoading={isLoading} />
+            {/* TODO: Add UsageStatsWidget and AuditStatsWidget back after debugging */}
 
             {/* SEO Score Card */}
             {latestAudit && (
