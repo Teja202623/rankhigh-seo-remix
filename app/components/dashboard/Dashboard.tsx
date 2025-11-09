@@ -1,22 +1,31 @@
-import { Page, Layout, Card, Text, Button, Badge, InlineStack, BlockStack, Tabs } from '@shopify/polaris';
+import { Page, Layout, Card, Text, Button, InlineStack, BlockStack, Tabs } from '@shopify/polaris';
 import { useNavigate } from '@remix-run/react';
 import SEOScoreCircle from '~/components/common/SEOScoreCircle';
 import SEOScoreBreakdown from '~/components/common/SEOScoreBreakdown';
 import QuickWinsSection, { generateQuickWins } from './QuickWinsSection';
 import SEOHealthVisualization from './SEOHealthVisualization';
 import PerformanceDashboard from './PerformanceDashboard';
+import { AuditStatsWidget } from './AuditStatsWidget';
+import { UsageStatsWidget } from './UsageStatsWidget';
 import { calculateSEOScore, getScoreLabel, getImprovementSuggestions } from '~/utils/seoScore';
 import { useMemo, useState, useCallback } from 'react';
+import type { UsageStatus } from '~/services/usage.server';
 
-export default function Dashboard() {
+interface DashboardProps {
+  latestAudit?: any;
+  usageStatus?: UsageStatus;
+  isLoading?: boolean;
+}
+
+export default function Dashboard({
+  latestAudit = null,
+  usageStatus,
+  isLoading = false
+}: DashboardProps) {
   const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState(0);
 
   const handleTabChange = useCallback((selectedTabIndex: number) => setSelectedTab(selectedTabIndex), []);
-
-  // TODO: Replace with Remix loader
-  const isLoading = false;
-  const latestAudit: any = null; // Stub data - will be replaced with real data from Remix loader
 
   // Calculate SEO Score
   const seoScoreData = useMemo(() => {
@@ -89,6 +98,14 @@ export default function Dashboard() {
               <div style={{ padding: '16px' }}>
                 {selectedTab === 0 && (
                   <BlockStack gap="500">
+            {/* Usage Stats Widget - Compact Mode */}
+            {usageStatus && (
+              <UsageStatsWidget status={usageStatus} compact={true} />
+            )}
+
+            {/* Audit Stats Widget - Replaces old audit section */}
+            <AuditStatsWidget audit={latestAudit} isLoading={isLoading} />
+
             {/* SEO Score Card */}
             {latestAudit && (
               <Card>
@@ -215,41 +232,6 @@ export default function Dashboard() {
               </BlockStack>
             </Card>
 
-            {/* Recent Audit */}
-            {latestAudit && (
-              <Card>
-                <BlockStack gap="400">
-                  <Text as="h2" variant="headingMd">
-                    Latest Audit
-                  </Text>
-                  <InlineStack align="space-between">
-                    <BlockStack gap="200">
-                      <Text as="p" variant="bodyMd">
-                        Status:{' '}
-                        <Badge
-                          tone={
-                            latestAudit.status === 'COMPLETED'
-                              ? 'success'
-                              : latestAudit.status === 'RUNNING'
-                              ? 'info'
-                              : 'attention'
-                          }
-                        >
-                          {latestAudit.status}
-                        </Badge>
-                      </Text>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        Completed: {latestAudit.completed} / {latestAudit.totalUrls} pages
-                      </Text>
-                      <Text as="p" variant="bodySm" tone="subdued">
-                        {new Date(latestAudit.createdAt).toLocaleString()}
-                      </Text>
-                    </BlockStack>
-                    <Button onClick={() => navigate('/audits')}>View Details</Button>
-                  </InlineStack>
-                </BlockStack>
-              </Card>
-            )}
 
             {/* Quick Wins */}
             {latestAudit && (

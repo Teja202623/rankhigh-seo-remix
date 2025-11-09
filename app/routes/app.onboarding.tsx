@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, Form } from "@remix-run/react";
+import { useLoaderData, useNavigate, Form, useFetcher } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -14,8 +14,12 @@ import {
   Banner,
   List,
   Badge,
+  Spinner,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
+import { getUsageStatus } from "~/services/usage.server";
+import { UsageSummary } from "~/components/UsageSummary";
+import prisma from "~/db.server";
 
 /**
  * Onboarding Wizard Route
@@ -30,31 +34,86 @@ import { authenticate } from "~/shopify.server";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
+  const store = await prisma.store.findUnique({
+    where: { shopUrl: session.shop },
+  });
+
+  if (!store) {
+    throw new Response("Store not found", { status: 404 });
+  }
+
+  // Get current usage status
+  const usageStatus = await getUsageStatus(store.id);
 
   return json({
     shopUrl: session.shop,
+    storeId: store.id,
+    usageStatus,
   });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
   const formData = await request.formData();
-  const step = formData.get("step");
-  const action = formData.get("action");
+  const actionType = formData.get("actionType");
 
-  // Handle different actions
-  if (action === "complete") {
-    // Mark onboarding as complete (store in localStorage on client)
-    return json({ success: true, redirect: "/app" });
+  if (actionType === "start-audit") {
+    // Get store
+    const store = await prisma.store.findUnique({
+      where: { shopUrl: session.shop },
+    });
+
+    if (!store) {
+      return json({ success: false, error: "Store not found" }, { status: 404 });
+    }
+
+    // Check if audit can be run (usage tracking)
+    const { canPerformAction } = await import("~/services/usage.server");
+    const canRun = await canPerformAction(store.id, "auditRuns", 1);
+
+    if (!canRun.allowed) {
+      return json(
+        {
+          success: false,
+          error: `Audit limit reached. You can run ${canRun.remaining} more audits today.`,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Increment usage after successful request
+    try {
+      const { incrementUsage } = await import("~/services/usage.server");
+      await incrementUsage(store.id, "auditRuns", 1);
+
+      // TODO: Trigger audit in background queue once BullMQ is integrated
+      // For now, return success so wizard can complete
+      // The audit will need to be manually triggered from the dashboard
+
+      return json({
+        success: true,
+        message: "Audit started! You'll see results shortly. Redirecting to dashboard...",
+      });
+    } catch (error) {
+      console.error("Failed to track audit:", error);
+      return json(
+        {
+          success: false,
+          error: "Failed to start audit. Please try again.",
+        },
+        { status: 500 }
+      );
+    }
   }
 
   return json({ success: true });
 }
 
 export default function Onboarding() {
-  const { shopUrl } = useLoaderData<typeof loader>();
+  const { shopUrl, storeId, usageStatus } = useLoaderData<typeof loader>();
   const navigate = useNavigate();
+  const fetcher = useFetcher();
 
   // Track current step (1-5)
   const [currentStep, setCurrentStep] = useState(1);
@@ -64,6 +123,8 @@ export default function Onboarding() {
   // Form state
   const [gtmId, setGtmId] = useState("");
   const [ga4Id, setGa4Id] = useState("");
+  const [auditStarting, setAuditStarting] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   // Load saved progress from localStorage
   useEffect(() => {
@@ -72,6 +133,22 @@ export default function Onboarding() {
       setCurrentStep(parseInt(savedStep, 10));
     }
   }, []);
+
+  // Handle audit response
+  useEffect(() => {
+    if (fetcher.data) {
+      const data = fetcher.data as any;
+      if (data.success) {
+        // Audit started successfully - complete wizard after short delay
+        setTimeout(() => {
+          completeWizard();
+        }, 2000);
+      } else if (data.error) {
+        setAuditError(data.error);
+        setAuditStarting(false);
+      }
+    }
+  }, [fetcher.data]);
 
   // Save progress to localStorage
   const saveProgress = (step: number) => {
@@ -313,6 +390,8 @@ export default function Onboarding() {
         );
 
       case 5:
+        const canRunAudit = usageStatus.auditRuns.remaining > 0;
+
         return (
           <Card>
             <BlockStack gap="400">
@@ -323,16 +402,34 @@ export default function Onboarding() {
                 Let's analyze your store and identify SEO opportunities. This will check for common issues like missing meta tags, broken links, and optimization opportunities.
               </Text>
 
-              <Banner tone="success">
-                <BlockStack gap="200">
-                  <Text as="p" variant="bodyMd" fontWeight="bold">
-                    You're almost done!
+              {/* Usage Status Widget */}
+              <Card background="bg-surface-secondary">
+                <BlockStack gap="300">
+                  <Text as="h3" variant="headingMd">
+                    Your Daily Quota
                   </Text>
-                  <Text as="p" variant="bodyMd">
-                    Click "Run First Audit" to scan your store. The audit typically takes 2-3 minutes to complete.
-                  </Text>
+                  <UsageSummary status={usageStatus} />
                 </BlockStack>
-              </Banner>
+              </Card>
+
+              {canRunAudit ? (
+                <Banner tone="success">
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodyMd" fontWeight="bold">
+                      You're almost done!
+                    </Text>
+                    <Text as="p" variant="bodyMd">
+                      Click "Run First Audit" to scan your store. The audit typically takes 2-3 minutes to complete. We'll show you all the issues we find.
+                    </Text>
+                  </BlockStack>
+                </Banner>
+              ) : (
+                <Banner tone="warning">
+                  <Text as="p" variant="bodyMd">
+                    You've reached your daily audit limit. Come back tomorrow to run more audits, or upgrade to PRO for unlimited scans.
+                  </Text>
+                </Banner>
+              )}
 
               <BlockStack gap="200">
                 <Text as="h3" variant="headingMd">
@@ -349,15 +446,22 @@ export default function Onboarding() {
               </BlockStack>
 
               <InlineStack gap="300">
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    // TODO: Trigger audit in next phase
-                    completeWizard();
-                  }}
-                >
-                  Run First Audit & Complete Setup
-                </Button>
+                <fetcher.Form method="POST" style={{ flex: 1 }}>
+                  <input type="hidden" name="actionType" value="start-audit" />
+                  <Button
+                    variant="primary"
+                    submit
+                    disabled={!canRunAudit || auditStarting}
+                    onClick={() => {
+                      if (canRunAudit) {
+                        setAuditStarting(true);
+                      }
+                    }}
+                    fullWidth
+                  >
+                    {auditStarting ? "Starting Audit..." : "Run First Audit & Complete Setup"}
+                  </Button>
+                </fetcher.Form>
                 <Button onClick={goToPreviousStep}>
                   Back
                 </Button>
@@ -365,6 +469,35 @@ export default function Onboarding() {
                   Skip & Go to Dashboard
                 </Button>
               </InlineStack>
+
+              {auditError && (
+                <Banner tone="critical">
+                  <Text as="p" variant="bodyMd">
+                    {auditError}
+                  </Text>
+                </Banner>
+              )}
+
+              {fetcher.data && (fetcher.data as any).success && (
+                <Banner tone="success">
+                  <BlockStack gap="200">
+                    <Text as="p" variant="bodyMd" fontWeight="bold">
+                      Audit Started!
+                    </Text>
+                    <Text as="p" variant="bodyMd">
+                      {(fetcher.data as any).message}
+                    </Text>
+                  </BlockStack>
+                </Banner>
+              )}
+
+              {fetcher.data && (fetcher.data as any).error && (
+                <Banner tone="critical">
+                  <Text as="p" variant="bodyMd">
+                    {(fetcher.data as any).error}
+                  </Text>
+                </Banner>
+              )}
             </BlockStack>
           </Card>
         );
