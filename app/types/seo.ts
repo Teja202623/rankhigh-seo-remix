@@ -201,12 +201,15 @@ export interface ProductFilters {
  * Represents a single product image with ALT text
  */
 export interface ProductImage {
-  id: string; // Format: gid://shopify/ProductImage/123456
+  id: string; // Format: gid://shopify/MediaImage/123456
   src: string; // Image URL
+  url?: string; // Alias for compatibility with audit tooling
   altText?: string | null; // ALT text for accessibility and SEO
   width?: number;
   height?: number;
   position?: number; // Order in product gallery (1-indexed)
+  productImageId?: string; // Legacy gid://shopify/ProductImage/...
+  fileId?: string; // Explicit file identifier (same as id)
 }
 
 /**

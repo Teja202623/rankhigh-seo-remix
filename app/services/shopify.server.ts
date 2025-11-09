@@ -468,14 +468,20 @@ const PRODUCTS_WITH_IMAGES_QUERY = `#graphql
           vendor
           productType
           status
-          images(first: 10) {
+          media(first: 20) {
             edges {
               node {
-                id
-                src
-                altText
-                width
-                height
+                __typename
+                ... on MediaImage {
+                  id
+                  alt
+                  image {
+                    id
+                    url
+                    width
+                    height
+                  }
+                }
               }
             }
           }
@@ -496,18 +502,20 @@ const PRODUCTS_WITH_IMAGES_QUERY = `#graphql
 `;
 
 /**
- * GraphQL mutation to update a single product image's ALT text
+ * GraphQL mutation to update file ALT text (MediaImage)
  */
-const UPDATE_PRODUCT_IMAGE_MUTATION = `#graphql
-  mutation updateProductImage($input: ProductImageUpdateInput!) {
-    productImageUpdate(input: $input) {
-      image {
+const UPDATE_FILE_ALT_MUTATION = `#graphql
+  mutation updateFileAlt($files: [FileUpdateInput!]!) {
+    fileUpdate(files: $files) {
+      files {
         id
-        altText
+        alt
+        fileStatus
       }
       userErrors {
         field
         message
+        code
       }
     }
   }
@@ -588,8 +596,61 @@ export async function fetchProductsWithImages(
 
     const productsConnection = data.data.products;
 
+    const products = productsConnection.edges.map(
+      (edge: {
+        node: {
+          media?: {
+            edges: Array<{
+              node: {
+                __typename: string;
+                id: string;
+                alt?: string | null;
+                image?: {
+                  id?: string;
+                  url?: string;
+                  width?: number;
+                  height?: number;
+                  altText?: string | null;
+                } | null;
+              };
+            }>;
+          };
+        } & Record<string, unknown>;
+      }) => {
+        const { media, ...productFields } = edge.node;
+
+        const mediaImages =
+          media?.edges
+            ?.filter((mediaEdge) => mediaEdge.node.__typename === "MediaImage")
+            .map((mediaEdge) => {
+              const mediaImage = mediaEdge.node;
+              const imageData = mediaImage.image || {};
+
+              return {
+                node: {
+                  id: mediaImage.id,
+                  fileId: mediaImage.id,
+                  productImageId: imageData.id,
+                  src: imageData.url || "",
+                  url: imageData.url || "",
+                  altText: mediaImage.alt ?? imageData.altText ?? null,
+                  width: imageData.width ?? undefined,
+                  height: imageData.height ?? undefined,
+                },
+              };
+            }) ?? [];
+
+        return {
+          ...productFields,
+          images: {
+            edges: mediaImages,
+          },
+        };
+      }
+    );
+
     return {
-      products: productsConnection.edges.map((edge: { node: unknown }) => edge.node),
+      products,
       pageInfo: productsConnection.pageInfo,
     };
   } catch (error) {
@@ -600,6 +661,24 @@ export async function fetchProductsWithImages(
         : "Failed to fetch products with images"
     );
   }
+}
+
+function normalizeMediaImageId(imageId: string): string | null {
+  if (!imageId) return null;
+
+  if (!imageId.startsWith("gid://")) {
+    return `gid://shopify/MediaImage/${imageId}`;
+  }
+
+  if (imageId.includes("/MediaImage/")) {
+    return imageId;
+  }
+
+  if (imageId.includes("/ProductImage/")) {
+    return imageId.replace("/ProductImage/", "/MediaImage/");
+  }
+
+  return imageId;
 }
 
 /**
@@ -630,41 +709,61 @@ export async function updateProductImageAltText(
 }> {
   const errors: string[] = [];
 
-  for (const image of imageUpdates) {
-    try {
-      const response = await admin.graphql(UPDATE_PRODUCT_IMAGE_MUTATION, {
-        variables: {
-          input: {
-            id: image.id.startsWith("gid://")
-              ? image.id
-              : `gid://shopify/ProductImage/${image.id}`,
-            altText: image.altText,
-          },
-        },
-      });
+  const filesPayload = imageUpdates
+    .map((image) => {
+      const normalizedId = normalizeMediaImageId(image.id);
 
-      const data = await response.json();
-
-      if (data.errors) {
-        console.error("GraphQL errors:", data.errors);
-        errors.push(data.errors[0]?.message || "Unknown GraphQL error");
-        continue;
+      if (!normalizedId) {
+        errors.push(`Invalid image ID for product ${productId}`);
+        return null;
       }
 
-      const result = data.data.productImageUpdate;
+      return {
+        id: normalizedId,
+        alt: image.altText ?? "",
+      };
+    })
+    .filter(Boolean) as Array<{ id: string; alt: string }>;
+
+  if (filesPayload.length === 0) {
+    return {
+      success: false,
+      error: errors[0] || "No valid images to update",
+    };
+  }
+
+  try {
+    const response = await admin.graphql(UPDATE_FILE_ALT_MUTATION, {
+      variables: {
+        files: filesPayload,
+      },
+    });
+
+    const data = await response.json();
+
+    if (data.errors) {
+      console.error("GraphQL errors:", data.errors);
+      errors.push(data.errors[0]?.message || "Unknown GraphQL error");
+    } else {
+      const result = data.data.fileUpdate;
 
       if (result.userErrors && result.userErrors.length > 0) {
-        console.error("User errors:", result.userErrors);
-        errors.push(result.userErrors[0]?.message || "Failed to update image");
+        result.userErrors.forEach(
+          (userError: { message: string; code?: string; field?: string[] }) => {
+            errors.push(
+              `${userError.message}${
+                userError.code ? ` (${userError.code})` : ""
+              }`
+            );
+          }
+        );
       }
-    } catch (error) {
-      console.error("Error updating product image ALT text:", error);
-      errors.push(
-        error instanceof Error
-          ? error.message
-          : "Failed to update image ALT text"
-      );
     }
+  } catch (error) {
+    console.error("Error updating image ALT text:", error);
+    errors.push(
+      error instanceof Error ? error.message : "Failed to update image ALT text"
+    );
   }
 
   return {
