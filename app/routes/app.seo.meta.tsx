@@ -568,7 +568,7 @@ export default function SeoMetaEditor() {
                   {titleValidation.length}/{TITLE_LIMITS.maxChars}
                 </Text>
               </InlineStack>
-              <div style={{ wordBreak: "break-word" }}>
+              <div style={{ wordBreak: "break-word", whiteSpace: "normal" }}>
                 <Text as="span" variant="bodyMd">
                   {draftValues.title || "No meta title set"}
                 </Text>
@@ -596,7 +596,7 @@ export default function SeoMetaEditor() {
                   {descriptionValidation.length}/{DESCRIPTION_LIMITS.maxChars}
                 </Text>
               </InlineStack>
-              <div style={{ wordBreak: "break-word" }}>
+              <div style={{ wordBreak: "break-word", whiteSpace: "normal" }}>
                 <Text
                   as="span"
                   variant="bodyMd"
