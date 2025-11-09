@@ -1,12 +1,10 @@
-import { Page, Layout, Card, Text, Button, InlineStack, BlockStack, Tabs } from '@shopify/polaris';
+import { Page, Layout, Card, Text, Button, InlineStack, BlockStack } from '@shopify/polaris';
 import { useNavigate } from '@remix-run/react';
 import SEOScoreCircle from '~/components/common/SEOScoreCircle';
 import SEOScoreBreakdown from '~/components/common/SEOScoreBreakdown';
 import QuickWinsSection, { generateQuickWins } from './QuickWinsSection';
-import SEOHealthVisualization from './SEOHealthVisualization';
-import PerformanceDashboard from './PerformanceDashboard';
 import { calculateSEOScore, getScoreLabel, getImprovementSuggestions } from '~/utils/seoScore';
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import type { UsageStatus } from '~/services/usage.server';
 
 interface DashboardProps {
@@ -17,13 +15,10 @@ interface DashboardProps {
 
 export default function Dashboard({
   latestAudit = null,
-  usageStatus, // Props received but not used while debugging
-  isLoading = false // Props received but not used while debugging
+  usageStatus,
+  isLoading = false
 }: DashboardProps) {
   const navigate = useNavigate();
-  const [selectedTab, setSelectedTab] = useState(0);
-
-  const handleTabChange = useCallback((selectedTabIndex: number) => setSelectedTab(selectedTabIndex), []);
 
   // Calculate SEO Score
   const seoScoreData = useMemo(() => {
@@ -43,9 +38,9 @@ export default function Dashboard({
       lowIssues: latestAudit.lowIssues || 0,
       totalPages: latestAudit.totalUrls || 0,
       pagesWithIssues: latestAudit.completed || 0,
-      hasSSL: true, // TODO: Get from actual data
-      hasRobotsTxt: true, // TODO: Get from actual data
-      hasSitemap: true, // TODO: Get from actual data
+      hasSSL: true,
+      hasRobotsTxt: true,
+      hasSitemap: true,
     };
 
     const scoreResult = calculateSEOScore(metrics);
@@ -58,24 +53,6 @@ export default function Dashboard({
       suggestions
     };
   }, [latestAudit]);
-
-  const tabs = [
-    {
-      id: 'overview',
-      content: 'Overview',
-      panelID: 'overview-panel',
-    },
-    {
-      id: 'health',
-      content: 'SEO Health',
-      panelID: 'health-panel',
-    },
-    {
-      id: 'performance',
-      content: 'Performance',
-      panelID: 'performance-panel',
-    },
-  ];
 
   return (
     <Page
@@ -91,13 +68,7 @@ export default function Dashboard({
     >
       <Layout>
         <Layout.Section>
-          <Card>
-            <Tabs tabs={tabs} selected={selectedTab} onSelect={handleTabChange}>
-              <div style={{ padding: '16px' }}>
-                {selectedTab === 0 && (
-                  <BlockStack gap="500">
-            {/* TODO: Add UsageStatsWidget and AuditStatsWidget back after debugging */}
-
+          <BlockStack gap="500">
             {/* SEO Score Card */}
             {latestAudit && (
               <Card>
@@ -116,12 +87,7 @@ export default function Dashboard({
                         Your SEO Health Score
                       </Text>
                       <Text as="p" variant="bodyMd" tone="subdued">
-                        Based on {latestAudit.totalUrls} pages analyzed with {
-                          (latestAudit.criticalIssues || 0) +
-                          (latestAudit.highIssues || 0) +
-                          (latestAudit.mediumIssues || 0) +
-                          (latestAudit.lowIssues || 0)
-                        } total issues found
+                        Based on {latestAudit.totalUrls} pages analyzed
                       </Text>
                       {seoScoreData.suggestions.length > 0 && (
                         <BlockStack gap="200">
@@ -224,13 +190,11 @@ export default function Dashboard({
               </BlockStack>
             </Card>
 
-
             {/* Quick Wins */}
             {latestAudit && (
               <QuickWinsSection
                 wins={generateQuickWins(latestAudit)}
                 onAction={(winId) => {
-                  // Handle quick win actions
                   if (winId === 'fix-critical' || winId === 'add-meta-descriptions') {
                     navigate('/audits');
                   } else if (winId === 'optimize-titles' || winId === 'add-alt-tags') {
@@ -246,15 +210,7 @@ export default function Dashboard({
             {latestAudit && seoScoreData.categories.length > 0 && (
               <SEOScoreBreakdown categories={seoScoreData.categories} />
             )}
-                  </BlockStack>
-                )}
-
-                {selectedTab === 1 && <SEOHealthVisualization />}
-
-                {selectedTab === 2 && <PerformanceDashboard />}
-              </div>
-            </Tabs>
-          </Card>
+          </BlockStack>
         </Layout.Section>
       </Layout>
     </Page>
