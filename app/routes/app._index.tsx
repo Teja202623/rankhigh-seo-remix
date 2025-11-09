@@ -46,6 +46,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function DashboardPage() {
   const { usageStatus, latestAudit } = useLoaderData<typeof loader>();
 
+  // Debug log
+  console.log("Dashboard data:", { usageStatus, latestAudit });
+
+  // Render Dashboard only if we have usage status
+  if (!usageStatus) {
+    return <div>Loading dashboard...</div>;
+  }
+
   return (
     <Dashboard
       usageStatus={usageStatus}
