@@ -381,6 +381,7 @@ export default function ImageAltManager() {
 
       setToastMessage("Image ALT text updated successfully");
       setShowToast(true);
+      // keep editing state active so user sees updated text after revalidation
     },
     [submit]
   );
