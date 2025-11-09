@@ -12,7 +12,7 @@
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSubmit, Form } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -40,11 +40,9 @@ import {
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { startAudit } from "~/services/audit/auditService.server";
-import { fetchShopifyDataWithAdmin } from "~/services/audit/auditService.server";
-import { processAudit } from "~/services/audit/auditService.server";
 import { canRunAudit, getAuditJobStatus } from "~/services/audit/auditQueue.server";
 import type { IssueSeverity, IssueType } from "~/types/audit";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { applyRateLimit, rateLimitExceeded } from "~/middleware/rateLimit.server";
 
 // ====================
@@ -52,7 +50,7 @@ import { applyRateLimit, rateLimitExceeded } from "~/middleware/rateLimit.server
 // ====================
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
   // Get or create store record
   const store = await prisma.store.upsert({
@@ -97,11 +95,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         overallScore: 0,
       },
       canRunAudit: auditPermission.allowed,
-      auditRestriction: auditPermission.reason || null,
-      nextAllowedTime: auditPermission.nextAllowedTime || null,
-      filters: { severity: severityFilter, type: typeFilter, search: searchQuery },
-    });
-  }
+    auditRestriction: auditPermission.reason || null,
+    nextAllowedTime: auditPermission.nextAllowedTime || null,
+    filters: { severity: severityFilter, type: typeFilter, search: searchQuery },
+    jobStatus: null,
+  });
+}
 
   // Get issues for the latest audit
   let issuesQuery: any = {
@@ -150,6 +149,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     overallScore: latestAudit.overallScore || 0,
   };
 
+  const jobStatus = await getAuditJobStatus(latestAudit.id);
+
   return json({
     store,
     audit: latestAudit,
@@ -159,6 +160,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     auditRestriction: auditPermission.reason || null,
     nextAllowedTime: auditPermission.nextAllowedTime || null,
     filters: { severity: severityFilter, type: typeFilter, search: searchQuery },
+    jobStatus,
   });
 };
 
@@ -167,7 +169,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 // ====================
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin, session } = await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
 
   const formData = await request.formData();
   const action = formData.get("action");
@@ -195,26 +197,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       return json({ error: permission.reason }, { status: 429 });
     }
 
-    // Fetch Shopify data (with caching - Task 70)
-    const shopifyData = await fetchShopifyDataWithAdmin(admin, store.id);
-
-    // Create audit record
-    const audit = await prisma.audit.create({
-      data: {
-        storeId: store.id,
-        status: "RUNNING",
-        startedAt: new Date(),
-        totalUrls: shopifyData.products.length + shopifyData.collections.length + shopifyData.pages.length,
-      },
-    });
-
-    // Process audit synchronously for demo (in production, use queue)
+    // Queue audit via BullMQ (falls back to sync if Redis unavailable)
     try {
-      await processAudit(audit.id, session.shop, () => {});
-      return json({ success: true, auditId: audit.id });
+      const auditId = await startAudit(store.id, session.shop);
+      return json({ success: true, auditId });
     } catch (error) {
-      console.error("Audit failed:", error);
-      return json({ error: "Audit failed" }, { status: 500 });
+      console.error("Audit queueing failed:", error);
+      return json({ error: "Audit failed to start" }, { status: 500 });
     }
   }
 
@@ -235,6 +224,7 @@ export default function AuditResultsPage() {
     auditRestriction,
     nextAllowedTime,
     filters,
+    jobStatus,
   } = useLoaderData<typeof loader>();
 
   const navigate = useNavigate();
@@ -265,6 +255,18 @@ export default function AuditResultsPage() {
     if (value) params.set("search", value);
     navigate(`?${params.toString()}`);
   };
+
+  const jobProgress =
+    typeof jobStatus?.progress === "number"
+      ? jobStatus.progress
+      : typeof jobStatus?.progress === "object" && jobStatus?.progress
+        ? (jobStatus.progress as { percentage?: number }).percentage ?? undefined
+        : undefined;
+
+  const jobStage =
+    typeof jobStatus?.progress === "object" && jobStatus?.progress
+      ? (jobStatus.progress as { stage?: string }).stage
+      : undefined;
 
   // Handle start audit
   const handleStartAudit = () => {
@@ -349,12 +351,20 @@ export default function AuditResultsPage() {
           </Banner>
         )}
 
-        {/* Running Audit Status */}
+        {/* Queued / Running Audit Status */}
+        {jobStatus?.status === "waiting" && (
+          <Banner tone="info">
+            <p>Audit queued. It will begin automatically in a moment.</p>
+          </Banner>
+        )}
+
         {audit?.status === "RUNNING" && (
           <Banner tone="info">
-            <p>Audit in progress... This may take a few minutes.</p>
+            <p>
+              Audit in progress{jobStage ? ` — ${jobStage.toLowerCase()}` : ""}. This may take a few minutes.
+            </p>
             <Box paddingBlockStart="200">
-              <ProgressBar progress={75} />
+              <ProgressBar progress={jobProgress ?? 25} />
             </Box>
           </Banner>
         )}
