@@ -11,8 +11,13 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "@jest/globals";
-import { startOfDay } from "date-fns";
 import prisma from "~/db.server";
+
+// Helper: Get start of day (midnight UTC)
+function getStartOfDayUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
 import {
   FREE_TIER_USAGE_LIMITS,
   getOrCreateTodayUsage,
@@ -98,7 +103,7 @@ describe("getOrCreateTodayUsage", () => {
     // Get again - should reset counters
     usage = await getOrCreateTodayUsage(TEST_STORE_ID);
     expect(usage.auditRunsToday).toBe(0);
-    expect(usage.date).toEqual(startOfDay(new Date()));
+    expect(usage.date).toEqual(getStartOfDayUTC());
   });
 });
 
@@ -347,7 +352,7 @@ describe("resetAllUsage", () => {
     });
 
     expect(usage?.auditRunsToday).toBe(0);
-    expect(usage?.date).toEqual(startOfDay(new Date()));
+    expect(usage?.date).toEqual(getStartOfDayUTC());
   });
 });
 

@@ -15,7 +15,26 @@
  */
 
 import prisma from "~/db.server";
-import { differenceInDays, startOfDay } from "date-fns";
+
+// ====================
+// UTILITIES
+// ====================
+
+/**
+ * Get start of day (midnight UTC)
+ */
+function getStartOfDayUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+/**
+ * Calculate days between two dates
+ */
+function getDaysDifference(date1: Date, date2: Date): number {
+  const oneDay = 24 * 60 * 60 * 1000;
+  return Math.floor((date1.getTime() - date2.getTime()) / oneDay);
+}
 
 // ====================
 // TYPES
@@ -76,7 +95,7 @@ export const FREE_TIER_USAGE_LIMITS: UsageLimits = {
  * @returns UsageTracking record for today
  */
 export async function getOrCreateTodayUsage(storeId: string) {
-  const today = startOfDay(new Date());
+  const today = getStartOfDayUTC();
 
   // Try to find existing record for today
   let tracking = await prisma.usageTracking.findUnique({
@@ -84,7 +103,7 @@ export async function getOrCreateTodayUsage(storeId: string) {
   });
 
   // If no record exists, or it's from a different day, create new one
-  if (!tracking || differenceInDays(today, tracking.date) > 0) {
+  if (!tracking || getDaysDifference(today, tracking.date) > 0) {
     // Create new record with reset counters
     tracking = await prisma.usageTracking.upsert({
       where: { storeId },
@@ -269,8 +288,8 @@ export async function getUsageQuotas(storeId: string): Promise<UsageQuotas | nul
   }
 
   // Check if it's still today
-  const today = startOfDay(new Date());
-  if (differenceInDays(today, tracking.date) > 0) {
+  const today = getStartOfDayUTC();
+  if (getDaysDifference(today, tracking.date) > 0) {
     // It's a new day, return zeros
     return {
       auditRuns: 0,
@@ -354,7 +373,7 @@ export async function resetUsage(storeId: string): Promise<void> {
  * @returns Number of records reset
  */
 export async function resetAllUsage(): Promise<number> {
-  const today = startOfDay(new Date());
+  const today = getStartOfDayUTC();
 
   const result = await prisma.usageTracking.updateMany({
     where: {
@@ -384,7 +403,7 @@ export async function resetAllUsage(): Promise<number> {
  * Get usage statistics across all stores (admin dashboard)
  */
 export async function getGlobalUsageStats() {
-  const today = startOfDay(new Date());
+  const today = getStartOfDayUTC();
 
   const stats = await prisma.usageTracking.aggregate({
     where: {

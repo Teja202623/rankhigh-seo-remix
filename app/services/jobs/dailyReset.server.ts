@@ -19,7 +19,6 @@
  */
 
 import prisma from "~/db.server";
-import { startOfDay } from "date-fns";
 
 // ====================
 // TYPES
@@ -43,9 +42,17 @@ export interface ResetJobResult {
  *
  * @returns Result of the reset operation
  */
+/**
+ * Helper: Get start of day (midnight UTC)
+ */
+function getStartOfDayUTC(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
 export async function resetDailyUsage(): Promise<ResetJobResult> {
   const startTime = Date.now();
-  const today = startOfDay(new Date());
+  const today = getStartOfDayUTC();
 
   try {
     console.log(
