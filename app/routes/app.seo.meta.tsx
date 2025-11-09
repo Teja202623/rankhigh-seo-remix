@@ -42,6 +42,7 @@ import {
   useIndexResourceState,
   Toast,
   Frame,
+  Divider,
 } from "@shopify/polaris";
 import { authenticate } from "~/shopify.server";
 import { getStore } from "~/services/store.server";
@@ -512,16 +513,12 @@ export default function SeoMetaEditor() {
 
   // Row markup for IndexTable
   const rowMarkup = products.map((product, index) => {
-    const isEditing = editingProductId === product.id;
     const draftValues = getMetaDraftValues(product);
     const titleValidation = validateMetaField(draftValues.title, TITLE_LIMITS, "Title");
     const descriptionValidation = validateMetaField(
       draftValues.description,
       DESCRIPTION_LIMITS,
       "Description"
-    );
-    const canSaveProduct = Boolean(
-      product.isDirty && titleValidation.isValid && descriptionValidation.isValid && !isSubmitting
     );
 
     return (
@@ -558,24 +555,24 @@ export default function SeoMetaEditor() {
           </InlineStack>
         </IndexTable.Cell>
 
-        {/* Meta Title */}
+        {/* Meta Tags */}
         <IndexTable.Cell>
-          {isEditing ? (
-            <TextField
-              label="Meta title"
-              labelHidden
-              value={draftValues.title}
-              onChange={(value) => updateProductDraft(product.id, "title", value)}
-              autoComplete="off"
-              placeholder="Enter meta title..."
-              error={titleValidation.isValid ? undefined : titleValidation.message}
-              helpText={`${titleValidation.length}/${TITLE_LIMITS.maxChars} characters`}
-            />
-          ) : (
+          <div style={{ maxWidth: "420px" }}>
+          <BlockStack gap="300">
             <BlockStack gap="100">
-              <Text as="span" variant="bodyMd">
-                {product.seo.title || product.title}
-              </Text>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Meta Title
+                </Text>
+                <Text as="span" variant="bodySm" tone="subdued">
+                  {titleValidation.length}/{TITLE_LIMITS.maxChars}
+                </Text>
+              </InlineStack>
+              <div style={{ wordBreak: "break-word" }}>
+                <Text as="span" variant="bodyMd">
+                  {draftValues.title || "No meta title set"}
+                </Text>
+              </div>
               {!product.seo.title && (
                 <Text as="span" variant="bodySm" tone="subdued">
                   Using product title
@@ -587,43 +584,35 @@ export default function SeoMetaEditor() {
                 </Text>
               )}
             </BlockStack>
-          )}
-        </IndexTable.Cell>
 
-        {/* Meta Description */}
-        <IndexTable.Cell>
-          {isEditing ? (
-            <TextField
-              label="Meta description"
-              labelHidden
-              value={draftValues.description}
-              onChange={(value) =>
-                updateProductDraft(product.id, "description", value)
-              }
-              autoComplete="off"
-              placeholder="Enter meta description..."
-              multiline={2}
-              error={
-                descriptionValidation.isValid ? undefined : descriptionValidation.message
-              }
-              helpText={`${descriptionValidation.length}/${DESCRIPTION_LIMITS.maxChars} characters`}
-            />
-          ) : (
+            <Divider />
+
             <BlockStack gap="100">
-              <Text
-                as="span"
-                variant="bodyMd"
-                tone={product.seo.description ? "base" : "subdued"}
-              >
-                {product.seo.description || "No meta description set"}
-              </Text>
+              <InlineStack align="space-between" blockAlign="center">
+                <Text as="span" variant="bodySm" tone="subdued">
+                  Meta Description
+                </Text>
+                <Text as="span" variant="bodySm" tone="subdued">
+                  {descriptionValidation.length}/{DESCRIPTION_LIMITS.maxChars}
+                </Text>
+              </InlineStack>
+              <div style={{ wordBreak: "break-word" }}>
+                <Text
+                  as="span"
+                  variant="bodyMd"
+                  tone={draftValues.description ? "base" : "subdued"}
+                >
+                  {draftValues.description || "No meta description set"}
+                </Text>
+              </div>
               {!descriptionValidation.isValid && (
                 <Text as="span" variant="bodySm" tone="critical">
                   {descriptionValidation.message}
                 </Text>
               )}
             </BlockStack>
-          )}
+          </BlockStack>
+          </div>
         </IndexTable.Cell>
 
         {/* Status */}
@@ -632,43 +621,42 @@ export default function SeoMetaEditor() {
         {/* Actions */}
         <IndexTable.Cell>
           <InlineStack gap="200">
-            {isEditing ? (
-              <>
-                <Button
-                  size="slim"
-                  variant="primary"
-                  onClick={() => saveProduct(product.id)}
-                  loading={isSubmitting}
-                  disabled={!canSaveProduct}
-                >
-                  Save
-                </Button>
-                <Button size="slim" onClick={() => cancelEdit(product.id)}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  size="slim"
-                  onClick={() => startEdit(product.id)}
-                  disabled={isSubmitting}
-                >
-                  Edit
-                </Button>
-                <Button
-                  size="slim"
-                  onClick={() => setPreviewProductId(product.id)}
-                >
-                  Preview
-                </Button>
-              </>
-            )}
+            <Button
+              size="slim"
+              onClick={() => startEdit(product.id)}
+              disabled={isSubmitting}
+            >
+              Edit
+            </Button>
+            <Button
+              size="slim"
+              onClick={() => setPreviewProductId(product.id)}
+            >
+              Preview
+            </Button>
           </InlineStack>
         </IndexTable.Cell>
       </IndexTable.Row>
     );
   });
+
+  const editingProduct = editingProductId
+    ? products.find((p) => p.id === editingProductId)
+    : null;
+  const editingDraftValues = editingProduct ? getMetaDraftValues(editingProduct) : null;
+  const editingTitleValidation = editingDraftValues
+    ? validateMetaField(editingDraftValues.title, TITLE_LIMITS, "Title")
+    : null;
+  const editingDescriptionValidation = editingDraftValues
+    ? validateMetaField(editingDraftValues.description, DESCRIPTION_LIMITS, "Description")
+    : null;
+  const canSaveEditingProduct = Boolean(
+    editingProduct &&
+      editingProduct.draft &&
+      editingTitleValidation?.isValid &&
+      editingDescriptionValidation?.isValid &&
+      !isSubmitting
+  );
 
   // Current preview product + derived drafts for SERP preview
   const previewProduct = products.find((p) => p.id === previewProductId);
@@ -783,8 +771,7 @@ export default function SeoMetaEditor() {
                     onSelectionChange={handleSelectionChange}
                     headings={[
                       { title: "Product" },
-                      { title: "Meta Title" },
-                      { title: "Meta Description" },
+                      { title: "Meta Tags" },
                       { title: "Status" },
                       { title: "Actions" },
                     ]}
@@ -879,6 +866,77 @@ export default function SeoMetaEditor() {
                 </BlockStack>
               </Card>
             </BlockStack>
+          </Modal.Section>
+        </Modal>
+
+        {/* Edit Meta Tags Modal */}
+        <Modal
+          open={editingProductId !== null}
+          onClose={() => editingProductId && cancelEdit(editingProductId)}
+          title={
+            editingProduct ? `Edit Meta Tags: ${editingProduct.title}` : "Edit Meta Tags"
+          }
+          primaryAction={{
+            content: "Save",
+            onAction: () => editingProductId && saveProduct(editingProductId),
+            disabled: !canSaveEditingProduct,
+            loading: isSubmitting,
+          }}
+          secondaryActions={
+            editingProductId
+              ? [
+                  {
+                    content: "Cancel",
+                    onAction: () => cancelEdit(editingProductId),
+                  },
+                ]
+              : undefined
+          }
+        >
+          <Modal.Section>
+            {editingProduct && editingDraftValues && (
+              <BlockStack gap="400">
+                <TextField
+                  label="Meta Title"
+                  value={editingDraftValues.title}
+                  onChange={(value) =>
+                    updateProductDraft(editingProduct.id, "title", value)
+                  }
+                  autoComplete="off"
+                  maxLength={TITLE_LIMITS.maxChars}
+                  helpText={`${editingTitleValidation?.length ?? 0}/${TITLE_LIMITS.maxChars} characters`}
+                  error={
+                    editingTitleValidation?.isValid
+                      ? undefined
+                      : editingTitleValidation?.message
+                  }
+                />
+                <TextField
+                  label="Meta Description"
+                  value={editingDraftValues.description}
+                  onChange={(value) =>
+                    updateProductDraft(editingProduct.id, "description", value)
+                  }
+                  autoComplete="off"
+                  multiline={4}
+                  maxLength={DESCRIPTION_LIMITS.maxChars}
+                  helpText={`${editingDescriptionValidation?.length ?? 0}/${DESCRIPTION_LIMITS.maxChars} characters`}
+                  error={
+                    editingDescriptionValidation?.isValid
+                      ? undefined
+                      : editingDescriptionValidation?.message
+                  }
+                />
+                <Divider />
+                <SERPPreview
+                  title={editingDraftValues.title}
+                  description={editingDraftValues.description}
+                  url={editingProduct.onlineStoreUrl || ""}
+                  mode="desktop"
+                  showAnalysis
+                />
+              </BlockStack>
+            )}
           </Modal.Section>
         </Modal>
 
