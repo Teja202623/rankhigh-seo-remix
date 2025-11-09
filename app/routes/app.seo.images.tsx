@@ -18,7 +18,7 @@
  * - TypeScript strict typing
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
 import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
@@ -327,6 +327,11 @@ export default function ImageAltManager() {
 
   const isLoading = navigation.state === "loading";
   const isSubmitting = navigation.state === "submitting";
+
+  // Sync local products whenever loader data refreshes (after save/bulk actions)
+  useEffect(() => {
+    setProducts(loaderData.products);
+  }, [loaderData.products]);
 
   // Index table resource state for bulk selection
   const resourceName = {
