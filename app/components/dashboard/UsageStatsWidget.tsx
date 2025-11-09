@@ -10,10 +10,9 @@
  * Used in Dashboard and Settings pages
  */
 
-import { Card, BlockStack, Text, Button } from "@shopify/polaris";
+import { Card, BlockStack, Text, Button, Banner } from "@shopify/polaris";
 import { useNavigate } from "@remix-run/react";
 import { UsageBar } from "~/components/UsageBar";
-import { UpgradePrompt } from "~/components/UpgradePrompt";
 import type { UsageStatus } from "~/services/usage.server";
 
 interface UsageStatsWidgetProps {
@@ -65,12 +64,11 @@ export function UsageStatsWidget({ status, compact = false }: UsageStatsWidgetPr
 
         {/* Warning Banner */}
         {hasWarnings && (
-          <UpgradePrompt
-            feature="audits"
-            used={features.reduce((sum, f) => sum + status[f.key].used, 0)}
-            limit={features.reduce((sum, f) => sum + status[f.key].limit, 0)}
-            resetAt={new Date(Date.now() + 24 * 60 * 60 * 1000)} // Tomorrow midnight UTC
-          />
+          <Banner tone="warning">
+            <Text as="p" variant="bodyMd">
+              You're approaching your daily quota limits. Consider upgrading to PRO for unlimited features.
+            </Text>
+          </Banner>
         )}
 
         {/* Feature Usage Bars */}
