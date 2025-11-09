@@ -48,6 +48,7 @@ export default function Dashboard() {
     <Page
       title="Dashboard"
       subtitle={`Welcome to RankHigh SEO for ${shopUrl}`}
+      fullWidth
       primaryAction={{
         content: "Run SEO Audit",
         url: "/app/seo/audit",

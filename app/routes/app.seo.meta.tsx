@@ -677,6 +677,7 @@ export default function SeoMetaEditor() {
       <Page
         title="Meta Title & Description Editor"
         subtitle="Optimize product meta tags for search engines"
+        fullWidth
         primaryAction={{
           content: "Bulk Edit Selected",
           onAction: () => {

@@ -623,6 +623,7 @@ export default function ImageAltManager() {
       <Page
         title="Image ALT Text Manager"
         subtitle="Optimize product images for SEO and accessibility"
+        fullWidth
         primaryAction={{
           content: "Bulk Edit Selected",
           onAction: () => {

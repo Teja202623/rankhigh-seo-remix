@@ -324,6 +324,7 @@ export default function AuditResultsPage() {
   return (
     <Page
       title="SEO Audit"
+      fullWidth
       primaryAction={
         canRunAudit
           ? {
