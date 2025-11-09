@@ -11,6 +11,11 @@
 
 import { cache, buildCacheKey, CACHE_TTL, CACHE_NAMESPACE } from '~/services/cache.server';
 
+function expectNotNull<T>(value: T | null): T {
+  expect(value).not.toBeNull();
+  return value as T;
+}
+
 describe('Cache Service', () => {
   beforeEach(() => {
     // Clear cache before each test
@@ -164,9 +169,8 @@ describe('Cache Service', () => {
 
     it('should have CACHE_NAMESPACE constant', () => {
       expect(CACHE_NAMESPACE).toBeDefined();
-      if (typeof CACHE_NAMESPACE === 'string') {
-        expect(CACHE_NAMESPACE.length).toBeGreaterThan(0);
-      }
+      expect(Object.keys(CACHE_NAMESPACE).length).toBeGreaterThan(0);
+      expect(CACHE_NAMESPACE.SHOPIFY.length).toBeGreaterThan(0);
     });
   });
 
@@ -263,7 +267,7 @@ describe('Cache Service', () => {
       const cacheKey = buildCacheKey('shopify-products', 'store-123');
       cache.set(cacheKey, shopifyData, 3600000); // 1 hour
 
-      const cached = cache.get(cacheKey);
+      const cached = expectNotNull(cache.get<typeof shopifyData>(cacheKey));
       expect(cached).toEqual(shopifyData);
       expect(cached.products.length).toBe(2);
     });
@@ -281,7 +285,7 @@ describe('Cache Service', () => {
       const cacheKey = buildCacheKey('audit-result', 'audit-123');
       cache.set(cacheKey, auditResult, 86400000); // 24 hours
 
-      const cached = cache.get(cacheKey);
+      const cached = expectNotNull(cache.get<typeof auditResult>(cacheKey));
       expect(cached.score).toBe(75);
       expect(cached.issues.length).toBe(2);
     });
@@ -299,7 +303,7 @@ describe('Cache Service', () => {
       const cacheKey = buildCacheKey('health-score', 'store-123');
       cache.set(cacheKey, healthScore);
 
-      const cached = cache.get(cacheKey);
+      const cached = expectNotNull(cache.get<typeof healthScore>(cacheKey));
       expect(cached.overallScore).toBe(82);
       expect(cached.categories.meta).toBe(95);
     });
@@ -358,7 +362,7 @@ describe('Cache Service', () => {
       };
 
       cache.set('large', largeObject);
-      const cached = cache.get('large');
+      const cached = expectNotNull(cache.get<typeof largeObject>('large'));
 
       expect(cached.data.length).toBe(10000);
     });

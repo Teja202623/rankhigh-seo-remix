@@ -703,7 +703,12 @@ describe('E2E: Complete Audit Workflow', () => {
 
       // Stage 1: Initiation
       workflowStages.push('INITIATED');
-      const audit = {
+      const audit: {
+        id: string;
+        status: AuditStatus;
+        startedAt: Date;
+        completedAt: Date | null;
+      } = {
         id: 'audit-123',
         status: 'PENDING' as AuditStatus,
         startedAt: new Date(),
@@ -746,7 +751,12 @@ describe('E2E: Complete Audit Workflow', () => {
 
     it('should handle complete workflow with multiple stores', () => {
       const stores = ['store-1', 'store-2', 'store-3'];
-      const completedAudits = [];
+      const completedAudits: Array<{
+        id: string;
+        storeId: string;
+        status: AuditStatus;
+        score: number;
+      }> = [];
 
       stores.forEach((storeId) => {
         const context = createMockAuditContext({ storeId });

@@ -19,7 +19,7 @@ jest.mock('~/db.server', () => ({
       findFirst: jest.fn(),
       update: jest.fn(),
     },
-    auditIssue: {
+    sEOIssue: {
       createMany: jest.fn(),
       deleteMany: jest.fn(),
     },
@@ -195,10 +195,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -225,10 +225,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -252,10 +252,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -305,10 +305,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -327,10 +327,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -356,10 +356,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 
@@ -388,10 +388,10 @@ describe('Audit Service', () => {
         ...mockAudit,
         status: 'COMPLETED',
       });
-      (prisma.auditIssue.deleteMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.deleteMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
-      (prisma.auditIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 0,
       });
 

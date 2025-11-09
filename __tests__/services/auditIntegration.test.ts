@@ -16,7 +16,7 @@ jest.mock('~/db.server', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
     },
-    seoIssue: {
+    sEOIssue: {
       createMany: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
@@ -290,24 +290,24 @@ describe('Audit Workflow Integration Tests', () => {
     });
 
     it('should save issues to database with metadata', async () => {
-      (prisma.seoIssue.createMany as jest.Mock).mockResolvedValue({
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({
         count: 3,
       });
 
-      const result = await (prisma.seoIssue.createMany as jest.Mock)({
+      const result = await (prisma.sEOIssue.createMany as jest.Mock)({
         data: [
           { auditId, type: 'test', severity: 'HIGH' },
         ],
       });
 
       expect(result.count).toBe(3);
-      expect(prisma.seoIssue.createMany).toHaveBeenCalled();
+      expect(prisma.sEOIssue.createMany).toHaveBeenCalled();
     });
 
     it('should handle empty issue lists', async () => {
-      (prisma.seoIssue.createMany as jest.Mock).mockResolvedValue({ count: 0 });
+      (prisma.sEOIssue.createMany as jest.Mock).mockResolvedValue({ count: 0 });
 
-      const result = await (prisma.seoIssue.createMany as jest.Mock)({
+      const result = await (prisma.sEOIssue.createMany as jest.Mock)({
         data: [],
       });
 

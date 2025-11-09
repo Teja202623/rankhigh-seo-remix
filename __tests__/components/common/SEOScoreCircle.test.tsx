@@ -8,10 +8,22 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+type ScoreSize = 'small' | 'medium' | 'large';
+
+interface SEOScoreCircleMockProps {
+  score?: number;
+  size?: ScoreSize;
+  showLabel?: boolean;
+}
+
 describe('SEOScoreCircle Component', () => {
   // Mock component for testing
-  const SEOScoreCircleMock = ({ score = 75, size = 'medium', showLabel = true }) => {
-    const getColorClass = (score) => {
+  const SEOScoreCircleMock = ({
+    score = 75,
+    size = 'medium',
+    showLabel = true,
+  }: SEOScoreCircleMockProps) => {
+    const getColorClass = (score: number) => {
       if (score >= 80) return 'text-green-600';
       if (score >= 60) return 'text-yellow-600';
       return 'text-red-600';

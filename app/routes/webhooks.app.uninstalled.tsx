@@ -40,12 +40,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Delete all related records in order of foreign key dependencies
     await Promise.all([
       // Delete analytics data
-      prisma.gscQuery.deleteMany({ where: { storeId } }),
-      prisma.gscPage.deleteMany({ where: { storeId } }),
-      prisma.gscMetric.deleteMany({ where: { storeId } }),
+      prisma.gSCQuery.deleteMany({ where: { storeId } }),
+      prisma.gSCPage.deleteMany({ where: { storeId } }),
+      prisma.gSCMetric.deleteMany({ where: { storeId } }),
 
       // Delete SEO issues (linked through page relation)
-      prisma.seoIssue.deleteMany({ where: { page: { storeId } } }),
+      prisma.sEOIssue.deleteMany({ where: { page: { storeId } } }),
 
       // Delete keyword rankings (linked through keyword relation)
       prisma.keywordRanking.deleteMany({ where: { keyword: { storeId } } }),

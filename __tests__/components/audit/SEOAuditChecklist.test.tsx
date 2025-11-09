@@ -8,8 +8,23 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+type ChecklistItem = {
+  id: number;
+  label: string;
+  completed: boolean;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+};
+
+interface SEOAuditChecklistMockProps {
+  items?: ChecklistItem[];
+  onItemCheck?: (id: number) => void;
+}
+
 describe('SEOAuditChecklist Component', () => {
-  const SEOAuditChecklistMock = ({ items = [], onItemCheck = jest.fn() }) => (
+  const SEOAuditChecklistMock = ({
+    items = [],
+    onItemCheck = () => {},
+  }: SEOAuditChecklistMockProps) => (
     <div data-testid="audit-checklist">
       <h2>SEO Audit Checklist</h2>
       {items.map((item) => (
@@ -46,20 +61,24 @@ describe('SEOAuditChecklist Component', () => {
       const items = [
         { id: 1, label: 'Meta Title', completed: false, severity: 'high' },
         { id: 2, label: 'Meta Description', completed: true, severity: 'high' },
-      ];
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('item-1')).toBeInTheDocument();
       expect(screen.getByTestId('item-2')).toBeInTheDocument();
     });
 
     it('should display item labels', () => {
-      const items = [{ id: 1, label: 'Test Item', completed: false, severity: 'medium' }];
+      const items = [
+        { id: 1, label: 'Test Item', completed: false, severity: 'medium' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('label-1')).toHaveTextContent('Test Item');
     });
 
     it('should display severity levels', () => {
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'critical' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'critical' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('severity-1')).toHaveTextContent('critical');
     });
@@ -68,7 +87,9 @@ describe('SEOAuditChecklist Component', () => {
   describe('Checkbox Interactions', () => {
     it('should call onItemCheck when checkbox clicked', () => {
       const mockCheck = jest.fn();
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'high' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'high' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} onItemCheck={mockCheck} />);
       
       fireEvent.click(screen.getByTestId('checkbox-1'));
@@ -76,7 +97,9 @@ describe('SEOAuditChecklist Component', () => {
     });
 
     it('should show completed status', () => {
-      const items = [{ id: 1, label: 'Test', completed: true, severity: 'high' }];
+      const items = [
+        { id: 1, label: 'Test', completed: true, severity: 'high' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('checkbox-1')).toBeChecked();
     });
@@ -86,7 +109,7 @@ describe('SEOAuditChecklist Component', () => {
       const items = [
         { id: 1, label: 'Item 1', completed: false, severity: 'high' },
         { id: 2, label: 'Item 2', completed: false, severity: 'high' },
-      ];
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} onItemCheck={mockCheck} />);
       
       fireEvent.click(screen.getByTestId('checkbox-1'));
@@ -97,19 +120,25 @@ describe('SEOAuditChecklist Component', () => {
 
   describe('Severity Styling', () => {
     it('should apply critical severity class', () => {
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'critical' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'critical' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('severity-1')).toHaveClass('severity-critical');
     });
 
     it('should apply high severity class', () => {
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'high' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'high' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('severity-1')).toHaveClass('severity-high');
     });
 
     it('should apply medium severity class', () => {
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'medium' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'medium' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('severity-1')).toHaveClass('severity-medium');
     });
@@ -117,13 +146,17 @@ describe('SEOAuditChecklist Component', () => {
 
   describe('Item Status', () => {
     it('should mark completed items with class', () => {
-      const items = [{ id: 1, label: 'Test', completed: true, severity: 'high' }];
+      const items = [
+        { id: 1, label: 'Test', completed: true, severity: 'high' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('item-1')).toHaveClass('completed');
     });
 
     it('should not mark incomplete items as completed', () => {
-      const items = [{ id: 1, label: 'Test', completed: false, severity: 'high' }];
+      const items = [
+        { id: 1, label: 'Test', completed: false, severity: 'high' },
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       expect(screen.getByTestId('item-1')).not.toHaveClass('completed');
     });
@@ -140,8 +173,8 @@ describe('SEOAuditChecklist Component', () => {
         id: i + 1,
         label: `Item ${i + 1}`,
         completed: i % 2 === 0,
-        severity: 'high',
-      }));
+        severity: 'high' as const,
+      })) satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       const checkboxes = screen.getAllByRole('checkbox');
       expect(checkboxes).toHaveLength(10);
@@ -153,7 +186,7 @@ describe('SEOAuditChecklist Component', () => {
       const items = [
         { id: 1, label: 'Item 1', completed: false, severity: 'high' },
         { id: 2, label: 'Item 2', completed: false, severity: 'high' },
-      ];
+      ] satisfies ChecklistItem[];
       render(<SEOAuditChecklistMock items={items} />);
       const checkboxes = screen.getAllByRole('checkbox');
       expect(checkboxes).toHaveLength(2);

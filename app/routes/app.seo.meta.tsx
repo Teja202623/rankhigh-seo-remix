@@ -18,10 +18,10 @@
  * - TypeScript strict typing
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { json } from "@remix-run/node";
-import { useLoaderData, useSubmit, useNavigation } from "@remix-run/react";
+import { useLoaderData, useSubmit, useNavigation, useActionData } from "@remix-run/react";
 import {
   Page,
   Layout,
@@ -58,9 +58,70 @@ import type {
   ProductsLoaderData,
   UpdateProductResponse,
 } from "~/types/seo";
-import { DEFAULT_TEMPLATES, FREE_TIER_LIMITS } from "~/types/seo";
+import { DEFAULT_TEMPLATES, FREE_TIER_LIMITS, SERP_LIMITS } from "~/types/seo";
 import { SERPPreview } from "~/components/seo/SERPPreview";
 import { MetaTemplates } from "~/components/seo/MetaTemplates";
+
+type MetaFieldValidationStatus = "valid" | "empty" | "too_short" | "too_long";
+
+interface MetaFieldValidation {
+  isValid: boolean;
+  status: MetaFieldValidationStatus;
+  message?: string;
+  length: number;
+}
+
+const TITLE_LIMITS = SERP_LIMITS.title;
+const DESCRIPTION_LIMITS = SERP_LIMITS.description;
+
+function validateMetaField(
+  value: string,
+  limits: { minChars: number; maxChars: number },
+  fieldLabel: "Title" | "Description"
+): MetaFieldValidation {
+  const trimmed = value.trim();
+  const length = trimmed.length;
+
+  if (length === 0) {
+    return {
+      isValid: false,
+      status: "empty",
+      message: `${fieldLabel} is required`,
+      length,
+    };
+  }
+
+  if (length < limits.minChars) {
+    return {
+      isValid: false,
+      status: "too_short",
+      message: `${fieldLabel} is too short (min ${limits.minChars} characters)`,
+      length,
+    };
+  }
+
+  if (length > limits.maxChars) {
+    return {
+      isValid: false,
+      status: "too_long",
+      message: `${fieldLabel} exceeds ${limits.maxChars} characters`,
+      length,
+    };
+  }
+
+  return {
+    isValid: true,
+    status: "valid",
+    length,
+  };
+}
+
+function getMetaDraftValues(product: ProductWithDraft) {
+  return {
+    title: product.draft?.title ?? product.seo.title ?? product.title ?? "",
+    description: product.draft?.description ?? product.seo.description ?? "",
+  };
+}
 
 /**
  * Loader: Fetch products and store data
@@ -237,6 +298,7 @@ export default function SeoMetaEditor() {
   const loaderData = useLoaderData<typeof loader>();
   const submit = useSubmit();
   const navigation = useNavigation();
+  const actionData = useActionData<typeof action>();
 
   // Local state
   const [products, setProducts] = useState<ProductWithDraft[]>(
@@ -255,6 +317,13 @@ export default function SeoMetaEditor() {
   const isLoading = navigation.state === "loading";
   const isSubmitting = navigation.state === "submitting";
 
+  useEffect(() => {
+    if (!actionData || actionData.success) return;
+    const errorMessage =
+      actionData.errors?.[0]?.message || "Failed to update meta tags. Please try again.";
+    setToastMessage(errorMessage);
+    setShowToast(true);
+  }, [actionData]);
   // Index table resource state for bulk selection
   const resourceName = {
     singular: "product",
@@ -302,11 +371,25 @@ export default function SeoMetaEditor() {
       const product = products.find((p) => p.id === productId);
       if (!product || !product.draft) return;
 
+      const draftValues = getMetaDraftValues(product);
+      const titleValidation = validateMetaField(draftValues.title, TITLE_LIMITS, "Title");
+      const descriptionValidation = validateMetaField(
+        draftValues.description,
+        DESCRIPTION_LIMITS,
+        "Description"
+      );
+
+      if (!titleValidation.isValid || !descriptionValidation.isValid) {
+        setToastMessage(titleValidation.message || descriptionValidation.message || "Fix validation errors before saving.");
+        setShowToast(true);
+        return;
+      }
+
       const formData = new FormData();
       formData.append("action", "updateSingle");
       formData.append("productId", productId);
-      formData.append("title", product.draft.title);
-      formData.append("description", product.draft.description);
+      formData.append("title", draftValues.title);
+      formData.append("description", draftValues.description);
 
       submit(formData, { method: "post" });
 
@@ -392,7 +475,10 @@ export default function SeoMetaEditor() {
 
       return {
         id: productId,
-        seo: { title, description },
+        seo: {
+          title: title.slice(0, TITLE_LIMITS.maxChars),
+          description: description.slice(0, DESCRIPTION_LIMITS.maxChars),
+        },
       };
     }).filter(Boolean);
 
@@ -427,6 +513,16 @@ export default function SeoMetaEditor() {
   // Row markup for IndexTable
   const rowMarkup = products.map((product, index) => {
     const isEditing = editingProductId === product.id;
+    const draftValues = getMetaDraftValues(product);
+    const titleValidation = validateMetaField(draftValues.title, TITLE_LIMITS, "Title");
+    const descriptionValidation = validateMetaField(
+      draftValues.description,
+      DESCRIPTION_LIMITS,
+      "Description"
+    );
+    const canSaveProduct = Boolean(
+      product.isDirty && titleValidation.isValid && descriptionValidation.isValid && !isSubmitting
+    );
 
     return (
       <IndexTable.Row
@@ -468,10 +564,12 @@ export default function SeoMetaEditor() {
             <TextField
               label="Meta title"
               labelHidden
-              value={product.draft?.title || ""}
+              value={draftValues.title}
               onChange={(value) => updateProductDraft(product.id, "title", value)}
               autoComplete="off"
               placeholder="Enter meta title..."
+              error={titleValidation.isValid ? undefined : titleValidation.message}
+              helpText={`${titleValidation.length}/${TITLE_LIMITS.maxChars} characters`}
             />
           ) : (
             <BlockStack gap="100">
@@ -481,6 +579,11 @@ export default function SeoMetaEditor() {
               {!product.seo.title && (
                 <Text as="span" variant="bodySm" tone="subdued">
                   Using product title
+                </Text>
+              )}
+              {!titleValidation.isValid && (
+                <Text as="span" variant="bodySm" tone="critical">
+                  {titleValidation.message}
                 </Text>
               )}
             </BlockStack>
@@ -493,23 +596,33 @@ export default function SeoMetaEditor() {
             <TextField
               label="Meta description"
               labelHidden
-              value={product.draft?.description || ""}
+              value={draftValues.description}
               onChange={(value) =>
                 updateProductDraft(product.id, "description", value)
               }
               autoComplete="off"
               placeholder="Enter meta description..."
               multiline={2}
+              error={
+                descriptionValidation.isValid ? undefined : descriptionValidation.message
+              }
+              helpText={`${descriptionValidation.length}/${DESCRIPTION_LIMITS.maxChars} characters`}
             />
           ) : (
-            <Text
-              as="span"
-              variant="bodyMd"
-              tone={product.seo.description ? "base" : "subdued"}
-            >
-              {product.seo.description ||
-                "No meta description set"}
-            </Text>
+            <BlockStack gap="100">
+              <Text
+                as="span"
+                variant="bodyMd"
+                tone={product.seo.description ? "base" : "subdued"}
+              >
+                {product.seo.description || "No meta description set"}
+              </Text>
+              {!descriptionValidation.isValid && (
+                <Text as="span" variant="bodySm" tone="critical">
+                  {descriptionValidation.message}
+                </Text>
+              )}
+            </BlockStack>
           )}
         </IndexTable.Cell>
 
@@ -526,7 +639,7 @@ export default function SeoMetaEditor() {
                   variant="primary"
                   onClick={() => saveProduct(product.id)}
                   loading={isSubmitting}
-                  disabled={!product.isDirty}
+                  disabled={!canSaveProduct}
                 >
                   Save
                 </Button>
@@ -557,8 +670,19 @@ export default function SeoMetaEditor() {
     );
   });
 
-  // Current preview product
+  // Current preview product + derived drafts for SERP preview
   const previewProduct = products.find((p) => p.id === previewProductId);
+  const previewTitle =
+    previewProduct?.draft?.title ||
+    previewProduct?.seo.title ||
+    previewProduct?.title ||
+    "";
+  const previewDescription =
+    previewProduct?.draft?.description ||
+    previewProduct?.seo.description ||
+    previewProduct?.description ||
+    "";
+  const previewUrl = previewProduct?.onlineStoreUrl || "";
 
   return (
     <Frame>
@@ -767,13 +891,9 @@ export default function SeoMetaEditor() {
           <Modal.Section>
             {previewProduct && (
               <SERPPreview
-                title={previewProduct.seo.title || previewProduct.title}
-                description={
-                  previewProduct.seo.description ||
-                  previewProduct.description ||
-                  ""
-                }
-                url={previewProduct.onlineStoreUrl || ""}
+                title={previewTitle}
+                description={previewDescription}
+                url={previewUrl}
                 mode="desktop"
                 showAnalysis
               />

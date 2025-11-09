@@ -8,8 +8,18 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
+interface KeywordInputMockProps {
+  onKeywordAdd?: (keyword: string) => void;
+  keywords?: string[];
+  placeholder?: string;
+}
+
 describe('KeywordInput Component', () => {
-  const KeywordInputMock = ({ onKeywordAdd = jest.fn(), keywords = [], placeholder = 'Add keyword...' }) => {
+  const KeywordInputMock = ({
+    onKeywordAdd = () => {},
+    keywords = [],
+    placeholder = 'Add keyword...',
+  }: KeywordInputMockProps) => {
     const [input, setInput] = React.useState('');
 
     return (

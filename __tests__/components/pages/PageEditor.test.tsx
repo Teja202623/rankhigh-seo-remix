@@ -76,7 +76,7 @@ const TestPageEditor = () => {
                   data-testid="input-meta-description"
                   value={metaDescription}
                   onChange={(e) => setMetaDescription(e.target.value)}
-                  multiline="true"
+                  aria-multiline="true"
                   autoComplete="off"
                 />
                 <div data-testid="help-meta-description">

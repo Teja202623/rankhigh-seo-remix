@@ -21,7 +21,18 @@
  * ```
  */
 
-import { Card, BlockStack, InlineStack, Text, Badge, Box } from "@shopify/polaris";
+import { useEffect, useState } from "react";
+import {
+  Card,
+  BlockStack,
+  InlineStack,
+  Text,
+  Badge,
+  Box,
+  Button,
+  ProgressBar,
+  Divider,
+} from "@shopify/polaris";
 import type { MetaAnalysis } from "~/types/seo";
 import { SERP_LIMITS, CHAR_WIDTHS } from "~/types/seo";
 
@@ -185,10 +196,31 @@ export function SERPPreview({
   mode = "desktop",
   showAnalysis = true,
 }: SERPPreviewProps) {
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(mode ?? "desktop");
+
+  useEffect(() => {
+    setPreviewMode(mode ?? "desktop");
+  }, [mode]);
+
   // Provide defaults for empty values
   const displayTitle = title || "Your Product Title Here";
   const displayDescription = description || "Your product description will appear here...";
   const analysis = analyzeMetaTags(displayTitle, displayDescription);
+  const titleBadge = getStatusBadge(analysis.title.status);
+  const descriptionBadge = getStatusBadge(analysis.description.status);
+  const titleProgress = Math.min(
+    100,
+    Math.round((analysis.title.pixelWidth / SERP_LIMITS.title.maxPixels) * 100)
+  );
+  const descriptionProgress = Math.min(
+    100,
+    Math.round(
+      (analysis.description.pixelWidth / SERP_LIMITS.description.maxPixels) * 100
+    )
+  );
+  const titleProgressTone = analysis.title.status === "optimal" ? "success" : "critical";
+  const descriptionProgressTone =
+    analysis.description.status === "optimal" ? "success" : "critical";
 
   const domain = extractDomain(url);
 
@@ -205,9 +237,22 @@ export function SERPPreview({
             <Text as="h3" variant="headingSm" fontWeight="semibold">
               Google Search Preview
             </Text>
-            <Badge tone={mode === "desktop" ? "info" : "success"}>
-              {mode === "desktop" ? "Desktop" : "Mobile"}
-            </Badge>
+            <InlineStack gap="200">
+              <Button
+                size="slim"
+                pressed={previewMode === "desktop"}
+                onClick={() => setPreviewMode("desktop")}
+              >
+                Desktop
+              </Button>
+              <Button
+                size="slim"
+                pressed={previewMode === "mobile"}
+                onClick={() => setPreviewMode("mobile")}
+              >
+                Mobile
+              </Button>
+            </InlineStack>
           </InlineStack>
 
           {/* SERP Result Preview */}
@@ -240,7 +285,7 @@ export function SERPPreview({
               {/* Title (Blue, clickable-looking) */}
               <Text
                 as="h2"
-                variant={mode === "desktop" ? "headingLg" : "headingMd"}
+                variant={previewMode === "desktop" ? "headingLg" : "headingMd"}
                 fontWeight="regular"
               >
                 <span
@@ -298,138 +343,54 @@ export function SERPPreview({
       {/* Character Analysis */}
       {showAnalysis && (
         <Card>
-          <BlockStack gap="400">
+          <BlockStack gap="300">
             <Text as="h3" variant="headingSm" fontWeight="semibold">
-              Character Analysis
+              Optimization Insights
             </Text>
 
-            {/* Title Analysis */}
             <BlockStack gap="200">
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="p" variant="bodyMd" fontWeight="medium">
-                  Title
+                  Meta Title
                 </Text>
-                <Badge {...getStatusBadge(analysis.title.status)}>
-                  {getStatusBadge(analysis.title.status).label}
-                </Badge>
+                <Badge tone={titleBadge.tone}>{titleBadge.label}</Badge>
               </InlineStack>
-
-              <InlineStack gap="400" wrap={false}>
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Characters
-                  </Text>
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    {analysis.title.length} / {SERP_LIMITS.title.maxChars}
-                  </Text>
-                </BlockStack>
-
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Pixels (approx.)
-                  </Text>
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    {analysis.title.pixelWidth} / {SERP_LIMITS.title.maxPixels}
-                  </Text>
-                </BlockStack>
-              </InlineStack>
-
-              {/* Progress bar */}
-              <Box>
-                <div
-                  style={{
-                    width: "100%",
-                    height: "8px",
-                    backgroundColor: "#e1e3e5",
-                    borderRadius: "4px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.min((analysis.title.length / SERP_LIMITS.title.maxChars) * 100, 100)}%`,
-                      height: "100%",
-                      backgroundColor:
-                        analysis.title.status === "optimal"
-                          ? "#008060"
-                          : analysis.title.status === "too_short"
-                            ? "#ffb84d"
-                            : "#d72c0d",
-                      transition: "width 0.3s ease",
-                    }}
-                  />
-                </div>
-              </Box>
-
               <Text as="p" variant="bodySm" tone="subdued">
-                Optimal: {SERP_LIMITS.title.minChars}-
-                {SERP_LIMITS.title.maxChars} characters
+                {analysis.title.length} characters • {analysis.title.pixelWidth}px of ~
+                {SERP_LIMITS.title.maxPixels}px
+              </Text>
+              <ProgressBar
+                      progress={titleProgress}
+                      size="small"
+                      tone={titleProgressTone}
+              />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Aim for {SERP_LIMITS.title.minChars}–
+                {SERP_LIMITS.title.maxChars} characters to stay fully visible.
               </Text>
             </BlockStack>
 
-            {/* Description Analysis */}
+            <Divider />
+
             <BlockStack gap="200">
               <InlineStack align="space-between" blockAlign="center">
                 <Text as="p" variant="bodyMd" fontWeight="medium">
-                  Description
+                  Meta Description
                 </Text>
-                <Badge {...getStatusBadge(analysis.description.status)}>
-                  {getStatusBadge(analysis.description.status).label}
-                </Badge>
+                <Badge tone={descriptionBadge.tone}>{descriptionBadge.label}</Badge>
               </InlineStack>
-
-              <InlineStack gap="400" wrap={false}>
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Characters
-                  </Text>
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    {analysis.description.length} /{" "}
-                    {SERP_LIMITS.description.maxChars}
-                  </Text>
-                </BlockStack>
-
-                <BlockStack gap="100">
-                  <Text as="p" variant="bodySm" tone="subdued">
-                    Pixels (approx.)
-                  </Text>
-                  <Text as="p" variant="bodyMd" fontWeight="semibold">
-                    {analysis.description.pixelWidth} /{" "}
-                    {SERP_LIMITS.description.maxPixels}
-                  </Text>
-                </BlockStack>
-              </InlineStack>
-
-              {/* Progress bar */}
-              <Box>
-                <div
-                  style={{
-                    width: "100%",
-                    height: "8px",
-                    backgroundColor: "#e1e3e5",
-                    borderRadius: "4px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${Math.min((analysis.description.length / SERP_LIMITS.description.maxChars) * 100, 100)}%`,
-                      height: "100%",
-                      backgroundColor:
-                        analysis.description.status === "optimal"
-                          ? "#008060"
-                          : analysis.description.status === "too_short"
-                            ? "#ffb84d"
-                            : "#d72c0d",
-                      transition: "width 0.3s ease",
-                    }}
-                  />
-                </div>
-              </Box>
-
               <Text as="p" variant="bodySm" tone="subdued">
-                Optimal: {SERP_LIMITS.description.minChars}-
-                {SERP_LIMITS.description.maxChars} characters
+                {analysis.description.length} characters • {analysis.description.pixelWidth}px of ~
+                {SERP_LIMITS.description.maxPixels}px
+              </Text>
+              <ProgressBar
+                      progress={descriptionProgress}
+                      size="small"
+                      tone={descriptionProgressTone}
+              />
+              <Text as="p" variant="bodySm" tone="subdued">
+                Keep descriptions between {SERP_LIMITS.description.minChars}–
+                {SERP_LIMITS.description.maxChars} characters for best results.
               </Text>
             </BlockStack>
           </BlockStack>
