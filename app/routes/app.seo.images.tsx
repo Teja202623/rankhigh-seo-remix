@@ -887,6 +887,9 @@ export default function ImageAltManager() {
                 onUpdateAlt={(imageId, altText) =>
                   updateImageDraft(editingProduct.id, imageId, altText)
                 }
+                onSaveImage={(imageId, altText) =>
+                  saveImage(editingProduct.id, imageId, altText)
+                }
                 disabled={isSubmitting}
               />
             )}

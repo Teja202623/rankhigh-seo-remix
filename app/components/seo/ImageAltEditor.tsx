@@ -40,6 +40,7 @@ interface ImageAltEditorProps {
   productTitle: string;
   images: ProductImage[];
   onUpdateAlt: (imageId: string, altText: string) => void;
+  onSaveImage?: (imageId: string, altText: string) => void;
   disabled?: boolean;
 }
 
@@ -47,6 +48,7 @@ export function ImageAltEditor({
   productTitle,
   images,
   onUpdateAlt,
+  onSaveImage,
   disabled = false,
 }: ImageAltEditorProps) {
   const [editingImageId, setEditingImageId] = useState<string | null>(null);
@@ -63,15 +65,6 @@ export function ImageAltEditor({
       ...draftAltTexts,
       [image.id]: image.altText || "",
     });
-  };
-
-  /**
-   * Save ALT text for an image
-   */
-  const saveAlt = (imageId: string) => {
-    const altText = draftAltTexts[imageId] || "";
-    onUpdateAlt(imageId, altText);
-    setEditingImageId(null);
   };
 
   /**
@@ -181,7 +174,12 @@ export function ImageAltEditor({
                         <InlineStack gap="200">
                           <Button
                             variant="primary"
-                            onClick={() => saveAlt(image.id)}
+                            onClick={() => {
+                              const altText = currentDraft;
+                              onUpdateAlt(image.id, altText);
+                              onSaveImage?.(image.id, altText);
+                              setEditingImageId(null);
+                            }}
                             disabled={disabled}
                             size="slim"
                           >
