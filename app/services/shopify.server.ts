@@ -496,29 +496,14 @@ const PRODUCTS_WITH_IMAGES_QUERY = `#graphql
 `;
 
 /**
- * GraphQL mutation to update product images (including ALT text)
- *
- * Updates image ALT text by updating the entire product.
- * Note: Shopify requires the full product input, but we only modify images.
- *
- * Important: This uses the productUpdate mutation with the images field.
- * Each image must include its ID and the new altText.
+ * GraphQL mutation to update a single product image's ALT text
  */
-const UPDATE_PRODUCT_IMAGES_MUTATION = `#graphql
-  mutation updateProductImages($input: ProductInput!) {
-    productUpdate(input: $input) {
-      product {
+const UPDATE_PRODUCT_IMAGE_MUTATION = `#graphql
+  mutation updateProductImage($input: ProductImageUpdateInput!) {
+    productImageUpdate(input: $input) {
+      image {
         id
-        title
-        images(first: 10) {
-          edges {
-            node {
-              id
-              altText
-            }
-          }
-        }
-        updatedAt
+        altText
       }
       userErrors {
         field
@@ -641,75 +626,51 @@ export async function updateProductImageAltText(
   imageUpdates: Array<{ id: string; altText: string }>
 ): Promise<{
   success: boolean;
-  product?: {
-    id: string;
-    title: string;
-    images: {
-      edges: Array<{
-        node: {
-          id: string;
-          altText?: string | null;
-        };
-      }>;
-    };
-  };
   error?: string;
 }> {
-  try {
-    // Ensure productId is in GID format
-    const gid = productId.startsWith("gid://")
-      ? productId
-      : `gid://shopify/Product/${productId}`;
+  const errors: string[] = [];
 
-    // Build images input array
-    const imagesInput = imageUpdates.map((img) => ({
-      id: img.id.startsWith("gid://") ? img.id : `gid://shopify/ProductImage/${img.id}`,
-      altText: img.altText,
-    }));
-
-    const response = await admin.graphql(UPDATE_PRODUCT_IMAGES_MUTATION, {
-      variables: {
-        input: {
-          id: gid,
-          images: imagesInput,
+  for (const image of imageUpdates) {
+    try {
+      const response = await admin.graphql(UPDATE_PRODUCT_IMAGE_MUTATION, {
+        variables: {
+          input: {
+            id: image.id.startsWith("gid://")
+              ? image.id
+              : `gid://shopify/ProductImage/${image.id}`,
+            altText: image.altText,
+          },
         },
-      },
-    });
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (data.errors) {
-      console.error("GraphQL errors:", data.errors);
-      return {
-        success: false,
-        error: data.errors[0]?.message || "Unknown GraphQL error",
-      };
-    }
+      if (data.errors) {
+        console.error("GraphQL errors:", data.errors);
+        errors.push(data.errors[0]?.message || "Unknown GraphQL error");
+        continue;
+      }
 
-    const result = data.data.productUpdate;
+      const result = data.data.productImageUpdate;
 
-    if (result.userErrors && result.userErrors.length > 0) {
-      console.error("User errors:", result.userErrors);
-      return {
-        success: false,
-        error: result.userErrors[0]?.message || "Failed to update images",
-      };
-    }
-
-    return {
-      success: true,
-      product: result.product,
-    };
-  } catch (error) {
-    console.error("Error updating product image ALT text:", error);
-    return {
-      success: false,
-      error:
+      if (result.userErrors && result.userErrors.length > 0) {
+        console.error("User errors:", result.userErrors);
+        errors.push(result.userErrors[0]?.message || "Failed to update image");
+      }
+    } catch (error) {
+      console.error("Error updating product image ALT text:", error);
+      errors.push(
         error instanceof Error
           ? error.message
-          : "Failed to update image ALT text",
-    };
+          : "Failed to update image ALT text"
+      );
+    }
   }
+
+  return {
+    success: errors.length === 0,
+    ...(errors.length ? { error: errors[0] } : {}),
+  };
 }
 
 /**
