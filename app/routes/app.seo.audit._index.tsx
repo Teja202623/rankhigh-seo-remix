@@ -12,13 +12,14 @@
  */
 
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useNavigate, useSubmit } from "@remix-run/react";
+import { useLoaderData, useNavigate, useSubmit, useRevalidator } from "@remix-run/react";
 import {
   Page,
   Layout,
   Card,
   Text,
   Button,
+  ButtonGroup,
   Badge,
   IndexTable,
   EmptyState,
@@ -42,7 +43,7 @@ import prisma from "~/db.server";
 import { startAudit } from "~/services/audit/auditService.server";
 import { canRunAudit, getAuditJobStatus } from "~/services/audit/auditQueue.server";
 import type { IssueSeverity, IssueType } from "~/types/audit";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { applyRateLimit, rateLimitExceeded } from "~/middleware/rateLimit.server";
 
 // ====================
@@ -139,6 +140,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const issues = await prisma.sEOIssue.findMany(issuesQuery);
 
+  issues.sort((a, b) => {
+    const rank = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 } as Record<string, number>;
+    const severityDiff = (rank[a.severity] ?? 4) - (rank[b.severity] ?? 4);
+    if (severityDiff !== 0) return severityDiff;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   // Calculate statistics
   const statistics = {
     totalIssues: latestAudit.criticalIssues + latestAudit.highIssues + latestAudit.mediumIssues + latestAudit.lowIssues,
@@ -229,7 +237,31 @@ export default function AuditResultsPage() {
 
   const navigate = useNavigate();
   const submit = useSubmit();
+  const revalidator = useRevalidator();
   const [isRunningAudit, setIsRunningAudit] = useState(false);
+
+  useEffect(() => {
+    if (
+      jobStatus?.status === "waiting" ||
+      jobStatus?.status === "active" ||
+      audit?.status === "RUNNING"
+    ) {
+      const interval = setInterval(() => {
+        revalidator.revalidate();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [jobStatus?.status, audit?.status, revalidator]);
+
+  useEffect(() => {
+    if (
+      jobStatus?.status &&
+      jobStatus.status !== "waiting" &&
+      jobStatus.status !== "active"
+    ) {
+      setIsRunningAudit(false);
+    }
+  }, [jobStatus?.status]);
 
   // Handle filter changes
   const handleSeverityChange = (value: string) => {
@@ -312,12 +344,19 @@ export default function AuditResultsPage() {
   };
 
   // Format issue type for display
-  const formatIssueType = (type: string) => {
-    return type
-      .split("_")
-      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
-      .join(" ");
-  };
+const formatIssueType = (type: string) => {
+  return type
+    .split("_")
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+    .join(" ");
+};
+
+const FIXABLE_ISSUE_TYPES = new Set([
+  "MISSING_META_TITLE",
+  "DUPLICATE_META_TITLE",
+  "MISSING_META_DESCRIPTION",
+  "MISSING_ALT_TEXT",
+]);
 
   // ====================
   // RENDER
@@ -485,26 +524,42 @@ export default function AuditResultsPage() {
 
                 {/* Filters */}
                 <Card>
-                  <BlockStack gap="400">
-                    <Text as="h2" variant="headingMd">
-                      Filter Issues
-                    </Text>
-                    <InlineStack gap="400">
-                      <div style={{ width: "200px" }}>
-                        <Select
-                          label="Severity"
-                          options={[
-                            { label: "All Severities", value: "all" },
-                            { label: "Critical", value: "critical" },
-                            { label: "High", value: "high" },
-                            { label: "Medium", value: "medium" },
-                            { label: "Low", value: "low" },
-                          ]}
-                          value={filters.severity}
-                          onChange={handleSeverityChange}
-                        />
-                      </div>
-                      <div style={{ width: "200px" }}>
+                  <BlockStack gap="300">
+                    <InlineStack align="space-between" blockAlign="center">
+                      <Text as="h2" variant="headingMd">
+                        Filter Issues
+                      </Text>
+                      <Button variant="plain" onClick={() => navigate("?")}>
+                        Reset Filters
+                      </Button>
+                    </InlineStack>
+
+                    <BlockStack gap="200">
+                      <Text as="p" variant="bodySm" tone="subdued">
+                        Severity
+                      </Text>
+                      <ButtonGroup variant="segmented">
+                        {[
+                          { label: "All", value: "all" },
+                          { label: "Critical", value: "critical" },
+                          { label: "High", value: "high" },
+                          { label: "Medium", value: "medium" },
+                          { label: "Low", value: "low" },
+                        ].map((option) => (
+                          <Button
+                            size="slim"
+                            key={option.value}
+                            pressed={filters.severity === option.value}
+                            onClick={() => handleSeverityChange(option.value)}
+                          >
+                            {option.label}
+                          </Button>
+                        ))}
+                      </ButtonGroup>
+                    </BlockStack>
+
+                    <InlineStack gap="400" align="space-between">
+                      <div style={{ width: "240px" }}>
                         <Select
                           label="Issue Type"
                           options={[
@@ -581,17 +636,26 @@ export default function AuditResultsPage() {
                           </BlockStack>
                         </IndexTable.Cell>
                         <IndexTable.Cell>
-                          {(issue.type === "MISSING_META_TITLE" ||
-                            issue.type === "DUPLICATE_META_TITLE" ||
-                            issue.type === "MISSING_META_DESCRIPTION" ||
-                            issue.type === "MISSING_ALT_TEXT") && (
-                            <Button
-                              size="slim"
-                              onClick={() => handleFixIssue(issue)}
-                            >
-                              Fix Now
-                            </Button>
-                          )}
+                          <InlineStack gap="200">
+                            {issue.url && (
+                              <Button
+                                size="slim"
+                                url={issue.url}
+                                target="_blank"
+                                external
+                              >
+                                View Page
+                              </Button>
+                            )}
+                            {FIXABLE_ISSUE_TYPES.has(issue.type) && (
+                              <Button
+                                size="slim"
+                                onClick={() => handleFixIssue(issue)}
+                              >
+                                Fix Now
+                              </Button>
+                            )}
+                          </InlineStack>
                         </IndexTable.Cell>
                       </IndexTable.Row>
                     ))}
