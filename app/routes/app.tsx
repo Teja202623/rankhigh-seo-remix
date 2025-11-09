@@ -24,6 +24,7 @@ export default function App() {
         <Link to="/app" rel="home">
           Home
         </Link>
+        <Link to="/app/seo/meta">Meta Title & Description</Link>
         <Link to="/app/seo/images">Image ALT Text</Link>
       </NavMenu>
       <Outlet />
