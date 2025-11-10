@@ -41,7 +41,6 @@ import {
 import { authenticate } from "~/shopify.server";
 import prisma from "~/db.server";
 import { startAudit } from "~/services/audit/auditService.server";
-import { canRunAudit, getAuditJobStatus } from "~/services/audit/auditQueue.server";
 import type { IssueSeverity, IssueType } from "~/types/audit";
 import { useEffect, useState } from "react";
 import { applyRateLimit, rateLimitExceeded } from "~/middleware/rateLimit.server";
@@ -200,7 +199,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     // Check if can run audit
     const permission = await canRunAudit(store.id);
-
     if (!permission.allowed) {
       return json({ error: permission.reason }, { status: 429 });
     }
