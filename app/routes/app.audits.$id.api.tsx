@@ -52,10 +52,10 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
           status: "COMPLETED",
           progress: 100,
           score: Math.floor(Math.random() * 30 + 70), // 70-100
-          criticalIssues: Math.floor(Math.random() * 3),
-          highIssues: Math.floor(Math.random() * 5),
-          mediumIssues: Math.floor(Math.random() * 8),
-          lowIssues: Math.floor(Math.random() * 12),
+          criticalIssues: Math.floor(Math.random() * 5) + 1, // 1-5
+          highIssues: Math.floor(Math.random() * 8) + 2, // 2-9
+          mediumIssues: Math.floor(Math.random() * 15) + 5, // 5-19
+          lowIssues: Math.floor(Math.random() * 20) + 5, // 5-24
           completedAt: new Date(),
           updatedAt: new Date(),
         },

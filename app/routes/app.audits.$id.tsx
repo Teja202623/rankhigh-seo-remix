@@ -69,6 +69,7 @@ export default function AuditProgressPage() {
   // Simulate audit progress
   useEffect(() => {
     if (audit.status === "PENDING" || audit.status === "RUNNING") {
+      // Poll every 2 seconds while audit is in progress
       const interval = setInterval(async () => {
         try {
           const response = await fetch(`/app/audits/${audit.id}/api`);
@@ -77,9 +78,22 @@ export default function AuditProgressPage() {
         } catch (error) {
           console.error("Failed to fetch audit status:", error);
         }
-      }, 2000); // Refresh every 2 seconds
+      }, 2000);
 
       return () => clearInterval(interval);
+    } else if (audit.status === "COMPLETED" || audit.status === "FAILED") {
+      // When complete, fetch one final time to ensure we have all result data
+      const fetchFinalResults = async () => {
+        try {
+          const response = await fetch(`/app/audits/${audit.id}/api`);
+          const data = await response.json();
+          setAudit(data.audit);
+        } catch (error) {
+          console.error("Failed to fetch final audit results:", error);
+        }
+      };
+
+      fetchFinalResults();
     }
   }, [audit.id, audit.status]);
 
