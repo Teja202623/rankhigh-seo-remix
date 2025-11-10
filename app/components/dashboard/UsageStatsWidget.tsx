@@ -10,7 +10,7 @@
  * Used in Dashboard and Settings pages
  */
 
-import { Card, BlockStack, Text, Button, Banner, InlineStack, Grid } from "@shopify/polaris";
+import { Card, BlockStack, Text, Button, Banner } from "@shopify/polaris";
 import { useNavigate } from "@remix-run/react";
 import type { UsageStatus } from "~/services/usage.server";
 
@@ -28,64 +28,67 @@ function QuotaDial({ used, limit, label, icon }: { used: number; limit: number; 
   
   // Determine color based on usage percentage
   let color = '#10b981'; // Green - 0-50%
+  let bgColor = '#d1fae5'; // Light green background
   if (percentage >= 80) {
     color = '#ef4444'; // Red - 80%+
+    bgColor = '#fee2e2'; // Light red background
   } else if (percentage >= 50) {
     color = '#f59e0b'; // Yellow - 50-80%
+    bgColor = '#fef3c7'; // Light yellow background
   }
   
-  const radius = 45;
+  const radius = 50;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
   return (
-    <div style={{ textAlign: 'center', padding: '16px' }}>
-      <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 12px' }}>
-        {/* Background circle */}
-        <svg width="120" height="120" style={{ position: 'absolute', top: 0, left: 0 }}>
+    <div style={{ textAlign: 'center', padding: '24px 16px' }}>
+      {/* Dial */}
+      <div style={{ position: 'relative', width: '140px', height: '140px', margin: '0 auto 16px', backgroundColor: bgColor, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="140" height="140" style={{ position: 'absolute', top: 0, left: 0 }}>
           <circle
-            cx="60"
-            cy="60"
+            cx="70"
+            cy="70"
             r={radius}
             fill="none"
             stroke="#e5e7eb"
-            strokeWidth="6"
+            strokeWidth="7"
           />
           {/* Progress circle */}
           <circle
-            cx="60"
-            cy="60"
+            cx="70"
+            cy="70"
             r={radius}
             fill="none"
             stroke={color}
-            strokeWidth="6"
+            strokeWidth="7"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="round"
             style={{ transition: 'stroke-dashoffset 0.3s ease' }}
-            transform="rotate(-90 60 60)"
+            transform="rotate(-90 70 70)"
           />
         </svg>
         
         {/* Center text */}
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <Text as="p" variant="headingMd" fontWeight="bold">
+        <div style={{ position: 'absolute', textAlign: 'center', zIndex: 1 }}>
+          <Text as="p" variant="heading2xl" fontWeight="bold">
             {percentage.toFixed(0)}%
+          </Text>
+          <Text as="p" variant="bodySm" tone="subdued">
+            {used}/{limit}
           </Text>
         </div>
       </div>
       
-      {/* Label and icon */}
-      <div style={{ marginBottom: '8px' }}>
+      {/* Label */}
+      <div style={{ marginBottom: '8px', minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Text as="p" variant="bodySm" fontWeight="bold">
           {icon} {label}
         </Text>
       </div>
       
-      {/* Stats */}
-      <Text as="p" variant="bodySm" tone="subdued">
-        {used}/{limit} used
-      </Text>
+      {/* Remaining */}
       <Text as="p" variant="bodySm" tone="subdued">
         {remaining} left
       </Text>
@@ -142,11 +145,11 @@ export function UsageStatsWidget({ status, compact = false }: UsageStatsWidgetPr
             </BlockStack>
             
             {/* Overall quota display */}
-            <div style={{ textAlign: 'center', padding: '12px 24px', backgroundColor: '#f3f4f6', borderRadius: '8px' }}>
+            <div style={{ textAlign: 'center', padding: '16px 24px', backgroundColor: '#f3f4f6', borderRadius: '8px', minWidth: '120px' }}>
               <Text as="p" variant="bodySm" tone="subdued">
                 Overall Usage
               </Text>
-              <Text as="p" variant="headingLg" fontWeight="bold">
+              <Text as="p" variant="heading2xl" fontWeight="bold">
                 {totalPercentage.toFixed(0)}%
               </Text>
               <Text as="p" variant="bodySm" tone="subdued">
@@ -170,14 +173,14 @@ export function UsageStatsWidget({ status, compact = false }: UsageStatsWidgetPr
           </Banner>
         )}
 
-        {/* Feature Quota Dials */}
-        <BlockStack gap="300">
+        {/* Feature Quota Dials - 3 per row */}
+        <BlockStack gap="400">
           <Text as="h3" variant="headingSm">
             Feature Quotas
           </Text>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px' }}>
             {displayedFeatures.map(feature => (
-              <div key={feature.key} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: '#f9fafb' }}>
+              <div key={feature.key} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', backgroundColor: '#ffffff', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
                 <QuotaDial
                   used={status[feature.key].used}
                   limit={status[feature.key].limit}
