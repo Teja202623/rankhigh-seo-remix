@@ -60,11 +60,11 @@ export default function Dashboard({
       title="Dashboard"
       primaryAction={{
         content: 'Run New Audit',
-        onAction: () => navigate('/audits'),
+        onAction: () => navigate('/app/audits'),
       }}
       secondaryActions={[
-        { content: 'View Pages', onAction: () => navigate('/pages') },
-        { content: 'Settings', onAction: () => navigate('/settings') },
+        { content: 'View Pages', onAction: () => navigate('/app/pages') },
+        { content: 'Settings', onAction: () => navigate('/app/settings') },
       ]}
     >
       <Layout>
@@ -189,9 +189,9 @@ export default function Dashboard({
                   Quick Actions
                 </Text>
                 <InlineStack gap="300">
-                  <Button onClick={() => navigate('/audits')}>Run SEO Audit</Button>
-                  <Button onClick={() => navigate('/pages')}>Manage Meta Tags</Button>
-                  <Button onClick={() => navigate('/settings')}>Connect Google Search Console</Button>
+                  <Button onClick={() => navigate('/app/audits')}>Run SEO Audit</Button>
+                  <Button onClick={() => navigate('/app/pages')}>Manage Meta Tags</Button>
+                  <Button onClick={() => navigate('/app/settings')}>Connect Google Search Console</Button>
                 </InlineStack>
               </BlockStack>
             </Card>
@@ -202,11 +202,11 @@ export default function Dashboard({
                 wins={generateQuickWins(latestAudit)}
                 onAction={(winId) => {
                   if (winId === 'fix-critical' || winId === 'add-meta-descriptions') {
-                    navigate('/audits');
+                    navigate('/app/audits');
                   } else if (winId === 'optimize-titles' || winId === 'add-alt-tags') {
-                    navigate('/pages');
+                    navigate('/app/pages');
                   } else {
-                    navigate('/settings');
+                    navigate('/app/settings');
                   }
                 }}
               />
