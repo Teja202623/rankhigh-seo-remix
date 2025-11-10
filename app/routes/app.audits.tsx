@@ -187,6 +187,7 @@ export default function AuditsPage() {
                   )}
 
                   <TextField
+                    name="url"
                     label="Website URL"
                     placeholder="https://example.com"
                     value={url}
