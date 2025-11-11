@@ -3,21 +3,15 @@ import { useNavigate } from '@remix-run/react';
 import SEOScoreCircle from '~/components/common/SEOScoreCircle';
 import SEOScoreBreakdown from '~/components/common/SEOScoreBreakdown';
 import QuickWinsSection, { generateQuickWins } from './QuickWinsSection';
-import { UsageStatsWidget } from './UsageStatsWidget';
 import { calculateSEOScore, getScoreLabel, getImprovementSuggestions } from '~/utils/seoScore';
 import { useMemo } from 'react';
-import type { UsageStatus } from '~/services/usage.server';
 
 interface DashboardProps {
   latestAudit?: any;
-  usageStatus?: UsageStatus;
-  isLoading?: boolean;
 }
 
 export default function Dashboard({
   latestAudit = null,
-  usageStatus,
-  isLoading = false
 }: DashboardProps) {
   const navigate = useNavigate();
 
@@ -70,11 +64,6 @@ export default function Dashboard({
       <Layout>
         <Layout.Section>
           <BlockStack gap="500">
-            {/* Usage Stats Widget - Show FREE Tier Quota */}
-            {usageStatus && (
-              <UsageStatsWidget status={usageStatus} compact={false} />
-            )}
-
             {/* SEO Score Card */}
             {latestAudit && (
               <Card>
