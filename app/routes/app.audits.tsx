@@ -32,40 +32,53 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  console.log("[AUDIT ACTION] Method:", request.method);
+
   if (request.method !== "POST") {
+    console.log("[AUDIT ACTION] Wrong method, returning 405");
     return json({ error: "Method not allowed" }, { status: 405 });
   }
 
-  const { session } = await authenticate.admin(request);
-  const formData = await request.formData();
-  const url = formData.get("url") as string;
-
-  if (!url) {
-    return json<ActionData>(
-      { error: "URL is required" },
-      { status: 400 }
-    );
-  }
-
-  // Validate URL format
   try {
-    new URL(url);
-  } catch {
-    return json<ActionData>(
-      { error: "Invalid URL format" },
-      { status: 400 }
-    );
-  }
+    const { session } = await authenticate.admin(request);
+    console.log("[AUDIT ACTION] Authenticated for shop:", session.shop);
 
-  const store = await prisma.store.findUnique({
-    where: { shopUrl: session.shop },
-  });
+    const formData = await request.formData();
+    const url = formData.get("url") as string;
+    console.log("[AUDIT ACTION] Form data received. URL:", url);
 
-  if (!store) {
-    throw new Response("Store not found", { status: 404 });
-  }
+    if (!url || url.trim() === "") {
+      console.log("[AUDIT ACTION] URL is empty");
+      return json<ActionData>(
+        { error: "URL is required" },
+        { status: 400 }
+      );
+    }
 
-  try {
+    // Validate URL format
+    try {
+      new URL(url);
+      console.log("[AUDIT ACTION] URL format valid");
+    } catch (e) {
+      console.log("[AUDIT ACTION] URL format invalid:", e);
+      return json<ActionData>(
+        { error: "Invalid URL format" },
+        { status: 400 }
+      );
+    }
+
+    const store = await prisma.store.findUnique({
+      where: { shopUrl: session.shop },
+    });
+    console.log("[AUDIT ACTION] Store lookup result:", store?.id);
+
+    if (!store) {
+      console.log("[AUDIT ACTION] Store not found");
+      throw new Response("Store not found", { status: 404 });
+    }
+
+    console.log("[AUDIT ACTION] Creating audit with storeId:", store.id);
+
     // Create audit record
     const audit = await prisma.audit.create({
       data: {
@@ -78,13 +91,17 @@ export async function action({ request }: ActionFunctionArgs) {
       },
     });
 
+    console.log("[AUDIT ACTION] Audit created successfully:", audit.id);
+
     // Redirect to progress page
     return redirect(`/app/audits/${audit.id}`);
   } catch (error) {
-    console.error("Audit creation error:", error);
+    console.error("[AUDIT ACTION] Error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("[AUDIT ACTION] Error message:", errorMessage);
     return json<ActionData>(
       {
-        error: `Failed to create audit: ${error instanceof Error ? error.message : "Unknown error"}`,
+        error: `Failed to create audit: ${errorMessage}`,
       },
       { status: 500 }
     );
