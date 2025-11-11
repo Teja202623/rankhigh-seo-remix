@@ -85,35 +85,45 @@ export async function action({ request }: ActionFunctionArgs) {
     throw new Response("Store not found", { status: 404 });
   }
 
-  // Check quota
-  const canAudit = await canPerformAction(store.id, "auditRuns", 1);
-  
-  if (!canAudit.allowed) {
+  try {
+    // Check quota
+    const canAudit = await canPerformAction(store.id, "auditRuns", 1);
+
+    if (!canAudit.allowed) {
+      return json<ActionData>(
+        {
+          error: `You've reached your daily audit limit (${canAudit.limit} per day). Your quota resets at midnight UTC.`,
+        },
+        { status: 429 }
+      );
+    }
+
+    // Create audit record
+    const audit = await prisma.audit.create({
+      data: {
+        storeId: store.id,
+        url,
+        status: "PENDING",
+        progress: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    // Increment usage
+    await incrementUsage(store.id, "auditRuns", 1);
+
+    // Redirect to progress page
+    return redirect(`/app/audits/${audit.id}`);
+  } catch (error) {
+    console.error("Audit creation error:", error);
     return json<ActionData>(
       {
-        error: `You've reached your daily audit limit (${canAudit.limit} per day). Your quota resets at midnight UTC.`,
+        error: `Failed to create audit: ${error instanceof Error ? error.message : "Unknown error"}`,
       },
-      { status: 429 }
+      { status: 500 }
     );
   }
-
-  // Create audit record
-  const audit = await prisma.audit.create({
-    data: {
-      storeId: store.id,
-      url,
-      status: "PENDING",
-      progress: 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  });
-
-  // Increment usage
-  await incrementUsage(store.id, "auditRuns", 1);
-
-  // Redirect to progress page
-  return redirect(`/app/audits/${audit.id}`);
 }
 
 export default function AuditsPage() {
