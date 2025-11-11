@@ -114,7 +114,7 @@ export default function AuditsPage() {
 
             {/* Audit Form */}
             <Card>
-              <Form method="post">
+              <Form method="post" action="/app/audits">
                 <BlockStack gap="400">
                   <Text as="h2" variant="headingMd">
                     Start New Audit
