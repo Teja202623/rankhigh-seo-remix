@@ -1,18 +1,12 @@
 import { json, type LoaderFunctionArgs, type ActionFunctionArgs, redirect } from "@remix-run/node";
 import { useLoaderData, Form, useNavigate, useActionData } from "@remix-run/react";
 import { authenticate } from "../shopify.server";
-import { canPerformAction, incrementUsage } from "~/services/usage.server";
 import prisma from "~/db.server";
 import { Page, Layout, Card, BlockStack, Text, TextField, Button, Banner, InlineStack } from "@shopify/polaris";
 import { useState } from "react";
 
 interface LoaderData {
   storeId: string;
-  quotaStatus: {
-    remaining: number;
-    limit: number;
-    used: number;
-  };
 }
 
 interface ActionData {
@@ -32,22 +26,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
     throw new Response("Store not found", { status: 404 });
   }
 
-  // Get current audit quota
-  const usageTracking = await prisma.usageTracking.findUnique({
-    where: { storeId: store.id },
-  });
-
-  const used = usageTracking?.auditRunsToday || 0;
-  const limit = 10;
-  const remaining = Math.max(0, limit - used);
-
   return json<LoaderData>({
     storeId: store.id,
-    quotaStatus: {
-      remaining,
-      limit,
-      used,
-    },
   });
 }
 
@@ -86,18 +66,6 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    // Check quota
-    const canAudit = await canPerformAction(store.id, "auditRuns", 1);
-
-    if (!canAudit.allowed) {
-      return json<ActionData>(
-        {
-          error: `You've reached your daily audit limit (${canAudit.limit} per day). Your quota resets at midnight UTC.`,
-        },
-        { status: 429 }
-      );
-    }
-
     // Create audit record
     const audit = await prisma.audit.create({
       data: {
@@ -109,9 +77,6 @@ export async function action({ request }: ActionFunctionArgs) {
         updatedAt: new Date(),
       },
     });
-
-    // Increment usage
-    await incrementUsage(store.id, "auditRuns", 1);
 
     // Redirect to progress page
     return redirect(`/app/audits/${audit.id}`);
@@ -127,14 +92,10 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function AuditsPage() {
-  const { storeId, quotaStatus } = useLoaderData<LoaderData>();
+  const { storeId } = useLoaderData<LoaderData>();
   const actionData = useActionData<ActionData>();
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const quotaPercentage = (quotaStatus.used / quotaStatus.limit) * 100;
-  const canRunAudit = quotaStatus.remaining > 0;
 
   return (
     <Page
@@ -144,35 +105,6 @@ export default function AuditsPage() {
       <Layout>
         <Layout.Section>
           <BlockStack gap="500">
-            {/* Quota Status */}
-            <Card>
-              <BlockStack gap="300">
-                <Text as="h2" variant="headingMd">
-                  Your Audit Quota
-                </Text>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <BlockStack gap="200">
-                    <Text as="p" variant="bodySm" tone="subdued">
-                      Audits remaining today
-                    </Text>
-                    <Text as="p" variant="heading2xl" fontWeight="bold">
-                      {quotaStatus.remaining} / {quotaStatus.limit}
-                    </Text>
-                  </BlockStack>
-                  <div style={{ width: '200px', height: '40px', backgroundColor: '#e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        height: '100%',
-                        backgroundColor: quotaPercentage >= 80 ? '#ef4444' : quotaPercentage >= 50 ? '#f59e0b' : '#10b981',
-                        width: `${quotaPercentage}%`,
-                        transition: 'width 0.3s ease',
-                      }}
-                    />
-                  </div>
-                </div>
-              </BlockStack>
-            </Card>
-
             {/* Error Banner */}
             {actionData?.error && (
               <Banner tone="critical">
@@ -188,21 +120,12 @@ export default function AuditsPage() {
                     Start New Audit
                   </Text>
 
-                  {!canRunAudit && (
-                    <Banner tone="warning">
-                      <Text as="p">
-                        You've reached your daily audit limit. Quotas reset at midnight UTC. Upgrade to PRO for unlimited audits.
-                      </Text>
-                    </Banner>
-                  )}
-
                   <TextField
                     name="url"
                     label="Website URL"
                     placeholder="https://example.com"
                     value={url}
                     onChange={setUrl}
-                    disabled={!canRunAudit}
                     helpText="Enter the full URL of the page to audit"
                     autoComplete="off"
                   />
@@ -211,14 +134,12 @@ export default function AuditsPage() {
                     <Button
                       variant="primary"
                       submit
-                      disabled={!canRunAudit || !url}
-                      loading={isSubmitting}
+                      disabled={!url}
                     >
                       Run Audit
                     </Button>
                     <Button
                       onClick={() => navigate("/app")}
-                      disabled={isSubmitting}
                     >
                       Cancel
                     </Button>
