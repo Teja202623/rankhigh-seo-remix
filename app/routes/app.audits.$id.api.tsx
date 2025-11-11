@@ -1,6 +1,7 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 import prisma from "~/db.server";
+import { executeAudit } from "~/services/audit/auditExecutor.server";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { session } = await authenticate.admin(request);
@@ -26,64 +27,29 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     return json({ error: "Audit not found" }, { status: 404 });
   }
 
-  // Simulate audit progression
-  let updatedAudit = audit;
-
+  // If audit is PENDING, start execution
   if (audit.status === "PENDING") {
-    // Move from pending to in-progress
-    updatedAudit = await prisma.audit.update({
-      where: { id: auditId },
-      data: {
-        status: "RUNNING",
-        progress: 10,
-        startedAt: new Date(),
-        updatedAt: new Date(),
-      },
+    // Execute audit in the background
+    // This will update the audit record as it progresses
+    executeAudit(auditId, store.id).catch((error) => {
+      console.error("Background audit execution failed:", error);
     });
-  } else if (audit.status === "RUNNING") {
-    // Simulate progress
-    const newProgress = Math.min(audit.progress + Math.floor(Math.random() * 25), 100);
-
-    if (newProgress >= 100) {
-      // Simulation: Generate random audit results
-      updatedAudit = await prisma.audit.update({
-        where: { id: auditId },
-        data: {
-          status: "COMPLETED",
-          progress: 100,
-          score: Math.floor(Math.random() * 30 + 70), // 70-100
-          criticalIssues: Math.floor(Math.random() * 5) + 1, // 1-5
-          highIssues: Math.floor(Math.random() * 8) + 2, // 2-9
-          mediumIssues: Math.floor(Math.random() * 15) + 5, // 5-19
-          lowIssues: Math.floor(Math.random() * 20) + 5, // 5-24
-          completedAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-    } else {
-      updatedAudit = await prisma.audit.update({
-        where: { id: auditId },
-        data: {
-          progress: newProgress,
-          updatedAt: new Date(),
-        },
-      });
-    }
   }
 
+  // Return current audit state
   return json({
     audit: {
-      id: updatedAudit.id,
-      url: updatedAudit.url,
-      status: updatedAudit.status,
-      progress: updatedAudit.progress || 0,
-      createdAt: updatedAudit.createdAt.toISOString(),
-      updatedAt: updatedAudit.updatedAt.toISOString(),
-      criticalIssues: updatedAudit.criticalIssues || 0,
-      highIssues: updatedAudit.highIssues || 0,
-      mediumIssues: updatedAudit.mediumIssues || 0,
-      lowIssues: updatedAudit.lowIssues || 0,
-      score: updatedAudit.score || 0,
+      id: audit.id,
+      url: audit.url,
+      status: audit.status,
+      progress: audit.progress || 0,
+      createdAt: audit.createdAt.toISOString(),
+      updatedAt: audit.updatedAt.toISOString(),
+      criticalIssues: audit.criticalIssues || 0,
+      highIssues: audit.highIssues || 0,
+      mediumIssues: audit.mediumIssues || 0,
+      lowIssues: audit.lowIssues || 0,
+      score: audit.score || 0,
     },
   });
 }
